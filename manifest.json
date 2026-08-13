@@ -1,0 +1,17 @@
+{
+  "name": "JE7 Distribuidora e Atacadão",
+  "short_name": "JE7",
+  "description": "Catálogo digital com pedido via WhatsApp. Bebidas no atacado e varejo.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0B0C",
+  "theme_color": "#E30613",
+  "lang": "pt-BR",
+  "categories": ["shopping", "food"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

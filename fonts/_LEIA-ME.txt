@@ -1,0 +1,3 @@
+As fontes (Montserrat + Inter) são carregadas pelo Google Fonts (CDN),
+já configurado no index.html. Esta pasta existe caso você queira
+hospedar as fontes localmente no futuro (self-host) para 100% offline.

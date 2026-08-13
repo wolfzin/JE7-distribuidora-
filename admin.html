@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Painel · JE7 Distribuidora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="icons/favicon.png">
+<style>
+:root{--red:#E30613;--ink:#0B0B0C;--bg:#f5f5f7;--surface:#fff;--surface-2:#f0f0f2;--border:#e2e2e6;--text:#141416;--muted:#6b6b72;--radius:16px;--ease:cubic-bezier(.4,0,.2,1);--shadow:0 6px 24px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+h1,h2,h3{font-family:Montserrat,sans-serif}
+a{color:inherit}
+svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* topbar */
+.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;display:flex;align-items:center;gap:1rem;padding:.8rem 1.2rem}
+.logo{font-family:Montserrat;font-weight:900;font-size:1.15rem;letter-spacing:-.02em}
+.logo b{color:var(--red)}.logo .u{border-bottom:3px solid var(--red);padding-bottom:1px}
+.top .sep{flex:1}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1rem;border-radius:11px;background:var(--red);color:#fff;font-weight:700;font-size:.86rem;border:none;cursor:pointer;transition:.2s var(--ease);font-family:inherit}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.top .btn.ghost{color:#fff;border-color:rgba(255,255,255,.25)}
+.btn.danger{background:transparent;color:#d33;border:1px solid rgba(210,40,40,.4)}
+.btn.ghost.danger{color:#d33}
+#dirtyDot{display:none;width:9px;height:9px;border-radius:99px;background:#ffcc00;box-shadow:0 0 0 3px rgba(255,204,0,.25)}
+/* wrap */
+.wrap{max-width:1080px;margin:0 auto;padding:1.4rem 1.2rem 4rem}
+.hero-note{background:linear-gradient(135deg,#fff,#fff);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:12px;padding:.8rem 1rem;font-size:.86rem;color:var(--muted);margin-bottom:1.3rem}
+.hero-note b{color:var(--text)}
+/* tabs */
+.tabs{display:flex;gap:.5rem;margin-bottom:1.2rem;flex-wrap:wrap}
+.tab{padding:.6rem 1.1rem;border-radius:99px;background:var(--surface);border:1px solid var(--border);font-weight:600;font-size:.9rem;cursor:pointer;font-family:inherit;color:var(--muted)}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.panel{display:none}.panel.show{display:block}
+/* toolbar produtos */
+.ptools{display:flex;gap:.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.search{flex:1;min-width:200px;display:flex;align-items:center;gap:.5rem;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:.55rem .8rem}
+.search input{border:none;outline:none;flex:1;font-family:inherit;font-size:.9rem;background:none;color:var(--text)}
+.count{color:var(--muted);font-size:.84rem}
+/* tabela */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:.7rem .8rem;border-bottom:1px solid var(--border);vertical-align:middle}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--surface-2)}
+tr:last-child td{border-bottom:none}
+.th{width:42px;height:42px;border-radius:9px;object-fit:cover;display:grid;place-items:center;overflow:hidden}
+.th.ph{font-weight:800;font-size:.8rem;color:#00000060}
+.sub{font-size:.75rem;color:var(--muted)}
+.pill{font-size:.74rem;background:var(--surface-2);padding:.2rem .55rem;border-radius:7px;white-space:nowrap}
+.flags{white-space:nowrap}
+.fl{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;font-size:.68rem;font-weight:800;color:#fff;margin-right:2px}
+.fl.f{background:#111}.fl.b{background:#0d8a4a}.fl.n{background:#2563eb}.fl.p{background:var(--red)}
+.acts{white-space:nowrap;text-align:right}
+.ic{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:inline-grid;place-items:center;color:var(--text);transition:.15s}
+.ic:hover{background:var(--surface-2)}.ic.danger:hover{color:var(--red);border-color:var(--red)}
+.ic:disabled{opacity:.35;cursor:not-allowed}
+.empty{text-align:center;color:var(--muted);padding:2rem}
+/* categorias / marcas */
+.catrow{display:flex;align-items:center;gap:.9rem;padding:.7rem .9rem;border-bottom:1px solid var(--border)}
+.catrow:last-child{border-bottom:none}
+.swatch{width:38px;height:38px;border-radius:10px;flex:none}
+.catinfo{flex:1}
+.addcat{display:flex;gap:.6rem;align-items:center;margin-top:1rem;flex-wrap:wrap}
+.addcat input[type=text]{flex:1;min-width:160px;padding:.6rem .8rem;border:1px solid var(--border);border-radius:10px;font-family:inherit}
+.addcat input[type=color]{width:44px;height:40px;border:1px solid var(--border);border-radius:10px;background:none;cursor:pointer}
+/* form sheet */
+#formRoot .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+#formRoot .sheet{position:fixed;z-index:50;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,95vw);max-height:92vh;background:var(--surface);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--border)}
+.sheet-body{padding:1.2rem;overflow-y:auto}
+.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:1rem 1.2rem;border-top:1px solid var(--border)}
+.sheet-foot>div{display:flex;gap:.6rem}
+.prev{width:110px;height:110px;border-radius:14px;border:1px solid var(--border);display:grid;place-items:center;overflow:hidden;margin:0 auto 1rem}
+.prev .th{width:100%;height:100%;border-radius:0}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.f4{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.7rem}
+label{display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;font-weight:600;color:var(--muted)}
+label input,label select{padding:.55rem .7rem;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:.9rem;color:var(--text);background:var(--surface)}
+label input:focus,label select:focus{outline:none;border-color:var(--red)}
+.grp{font-family:Montserrat;font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text);margin:1.2rem 0 .6rem}
+.chk{display:flex;flex-wrap:wrap;gap:1rem;align-items:end}
+.chk .c{flex-direction:row;align-items:center;gap:.4rem;color:var(--text);font-weight:600;font-size:.88rem}
+.hint{font-size:.78rem;color:var(--muted);margin:.7rem 0}
+.hint code{background:var(--surface-2);padding:.1rem .3rem;border-radius:5px;font-size:.9em}
+.file{margin-top:.4rem;font-size:.8rem}
+/* toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:.7rem 1.2rem;border-radius:12px;font-size:.88rem;font-weight:600;opacity:0;pointer-events:none;transition:.25s var(--ease);z-index:80}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media(max-width:640px){ .f2{grid-template-columns:1fr} th.hide,td.hide{display:none} }
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="logo"><b>JE7</b> <span class="u">Painel</span></span>
+  <span id="dirtyDot" title="Alterações não exportadas"></span>
+  <span class="sep"></span>
+  <a class="btn ghost" href="index.html">Ver catálogo</a>
+  <button class="btn ghost" id="restoreBtn">Restaurar</button>
+  <button class="btn" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar data.js</button>
+</div>
+
+<div class="wrap">
+  <div class="hero-note">Este painel edita o catálogo <b>no seu navegador</b> e gera um arquivo <b>data.js</b> para você subir no servidor (pasta <code>js/</code>). Sem login e sem banco de dados — simples e rápido. A estrutura já está pronta para um backend real no futuro, sem retrabalho.</div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="produtos">Produtos</button>
+    <button class="tab" data-tab="categorias">Categorias</button>
+    <button class="tab" data-tab="marcas">Marcas</button>
+  </div>
+
+  <!-- PRODUTOS -->
+  <section class="panel show" id="tab-produtos">
+    <div class="ptools">
+      <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="prodSearch" placeholder="Buscar produto, marca ou categoria…"></div>
+      <span class="count" id="prodCount"></span>
+      <button class="btn" id="newProdBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Novo produto</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th></th><th>Produto</th><th>Marca</th><th>Categoria</th><th>Varejo</th><th>Atacado</th><th>Marcações</th><th></th></tr></thead>
+        <tbody id="prodTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CATEGORIAS -->
+  <section class="panel" id="tab-categorias">
+    <div class="card"><div id="catList"></div></div>
+    <div class="addcat">
+      <input type="text" id="newCatName" placeholder="Nova categoria…">
+      <input type="color" id="newCatColor" value="#E30613" title="Cor da categoria">
+      <button class="btn" id="addCatBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+    </div>
+  </section>
+
+  <!-- MARCAS -->
+  <section class="panel" id="tab-marcas">
+    <div class="card"><div id="brandList"></div></div>
+    <p class="hint">Para criar uma marca nova, basta digitá-la no cadastro de um produto. Renomear aqui atualiza todos os produtos daquela marca.</p>
+  </section>
+</div>
+
+<datalist id="brandsDL"></datalist>
+<div id="formRoot"></div>
+<div id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

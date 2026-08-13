@@ -1,0 +1,44 @@
+JE7 DISTRIBUIDORA E ATACADÃO — CATÁLOGO DIGITAL
+================================================
+
+COMO RODAR
+----------
+Abra o arquivo index.html no navegador (duplo clique) ou hospede a
+pasta inteira em qualquer servidor (Hostinger, Netlify, Vercel, etc.).
+O PWA (instalar na tela inicial / offline) só funciona hospedado em
+HTTPS — no duplo clique local ele funciona como site normal.
+
+ESTRUTURA
+---------
+index.html            → a página
+manifest.json, sw.js  → PWA (instalável + offline básico)
+robots.txt, sitemap.xml → SEO
+css/style.css         → todo o visual
+js/config.js          → CONFIG: WhatsApp e imagens (EDITE AQUI)
+js/data.js            → lista de produtos e categorias (EDITE AQUI)
+js/app.js             → funcionamento (carrinho, filtros, WhatsApp)
+images/products/      → fotos dos produtos (veja _LISTA-DE-IMAGENS.txt)
+images/brands/        → logos de marcas (opcional)
+icons/                → ícones do PWA e favicon
+fonts/                → (opcional) fontes locais no futuro
+
+O QUE VOCÊ PRECISA EDITAR
+-------------------------
+1) NÚMERO DO WHATSAPP
+   js/config.js  →  whatsapp: "5541999999999"
+   Troque pelo número real (DDI 55 + DDD + número, só dígitos).
+
+2) FOTOS DOS PRODUTOS
+   Coloque as fotos em images/products/ com o nome exato indicado
+   em images/products/_LISTA-DE-IMAGENS.txt (ex.: coca-cola-2l.jpg).
+   Aparece automaticamente. Sem foto = mostra a silhueta desenhada.
+   Recomendado: .jpg com fundo branco, ~800x800px.
+
+3) PREÇOS / PRODUTOS
+   js/data.js  → cada linha é um produto. Campos:
+   au = atacado/unidade | ap = atacado/fardo
+   vp = varejo/fardo    | vu = varejo/unidade | pk = un por fardo
+   f:1 = marca de "Destaque" | nv:1 = "Novidade"
+
+DICA: para esconder os preços do público, me avise que eu faço a
+versão "sob consulta".

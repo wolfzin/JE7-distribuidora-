@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>JE7 Distribuidora e Atacadão · Catálogo Digital</title>
+
+<!-- ============ SEO / OPEN GRAPH / TWITTER ============ -->
+<meta name="description" content="Catálogo digital da JE7 Distribuidora e Atacadão. Bebidas, cervejas, destilados, energéticos e mais no atacado e varejo. Monte seu pedido e finalize pelo WhatsApp." />
+<meta name="theme-color" content="#E30613" />
+<meta name="robots" content="index, follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="JE7 Distribuidora e Atacadão · Catálogo Digital" />
+<meta property="og:description" content="Monte seu pedido no atacado e finalize pelo WhatsApp em segundos." />
+<meta property="og:locale" content="pt_BR" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="JE7 Distribuidora e Atacadão" />
+<meta name="twitter:description" content="Catálogo digital com pedido via WhatsApp." />
+
+<!-- ============ PWA ============ -->
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+<!-- ============ SCHEMA.ORG ============ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Store",
+  "name": "JE7 Distribuidora e Atacadão",
+  "image": "icons/icon-512.png",
+  "priceRange": "$$",
+  "servesCuisine": "Bebidas e Atacado",
+  "acceptsReservations": "false"
+}
+</script>
+
+<!-- ============ FONTS ============ -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ===================== LOADER ===================== -->
+<div id="loader"><div style="text-align:center">
+  <div class="load-mark">JE<span class="e">7</span></div>
+  <div class="load-bar"><span></span></div>
+</div></div>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav">
+  <div class="nav-in">
+    <a href="#top" class="logo">JE<span class="e">7</span><small>DISTRIBUIDORA</small></a>
+    <nav class="nav-links">
+      <a href="#catalogo">Catálogo</a>
+      <a href="#marcas">Marcas</a>
+      <a href="#sobre">Quem Somos</a>
+    </nav>
+    <div class="nav-tools">
+      <button class="icon-btn" id="themeBtn" aria-label="Alternar tema">
+        <svg id="moonIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+      <button class="icon-btn" id="favNav" aria-label="Favoritos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+      </button>
+      <button class="icon-btn" id="cartNav" aria-label="Carrinho">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="18" cy="21" r="1.5"/><path d="M2.5 3h2l2.2 12.4a1.5 1.5 0 0 0 1.5 1.2h9.1a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg>
+        <span class="cart-count" id="navCount">0</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<span id="top"></span>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero">
+  <div class="hero-card">
+    <div class="hero-slash"></div>
+    <div class="hero-noise"></div>
+    <div class="hero-content">
+      <span class="hero-eyebrow"><span class="dot"></span>Atacado & Varejo · Entrega rápida</span>
+      <h1>Seu pedido no <em>atacado</em>, direto no WhatsApp.</h1>
+      <p>Bebidas, cervejas, destilados e muito mais com preço de distribuidora. Monte seu carrinho e finalize em segundos.</p>
+      <div class="hero-cta">
+        <a href="#catalogo" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          Ver Produtos
+        </a>
+        <button class="btn btn-ghost" id="heroOrder">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.4 14.2c-.2.6-1.3 1.2-1.8 1.2s-1.7.2-4.6-1.4-3.7-3.6-3.9-3.8-.9-1.2-.9-2.3.6-1.6.8-1.8.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6s.7 1.1 1.4 1.7c1 .8 1.7 1 2 1.2s.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.3.1.4.2.5.3s.1.7-.1 1.3Z"/></svg>
+          Fazer Pedido
+        </button>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div><span id="stProducts">110</span><small>Produtos</small></div>
+      <div><span>7</span><small>Categorias</small></div>
+      <div><span>+30</span><small>Marcas</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CATEGORY CHIPS ===================== -->
+<div class="chips-wrap" id="catalogo">
+  <div class="chips" id="chips"></div>
+</div>
+
+<!-- ===================== TOOLBAR ===================== -->
+<div class="wrap">
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="search" placeholder="Buscar produto, marca ou categoria…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="suggest" />
+      <div class="suggest" id="suggest" role="listbox"></div>
+    </div>
+    <div class="select">
+      <select id="brandFilter"><option value="">Todas as marcas</option></select>
+    </div>
+    <div class="select">
+      <select id="priceFilter">
+        <option value="">Qualquer preço</option>
+        <option value="0-5">Até R$ 5</option>
+        <option value="5-15">R$ 5 – 15</option>
+        <option value="15-50">R$ 15 – 50</option>
+        <option value="50-999">Acima de R$ 50</option>
+      </select>
+    </div>
+    <div class="sort-toggle">
+      <button data-sort="rel" class="on">Relevância</button>
+      <button data-sort="asc">Menor preço</button>
+      <button data-sort="desc">Maior preço</button>
+    </div>
+  </div>
+  <div class="fchips" id="fchips"></div>
+</div>
+
+<!-- ===================== CATALOG RENDER TARGET ===================== -->
+<main class="wrap" id="catalogArea"></main>
+
+<!-- ===================== BRANDS ===================== -->
+<section class="brands" id="marcas">
+  <div class="wrap" style="margin-bottom:1.5rem">
+    <div class="sec-eyebrow" style="justify-content:center;color:var(--red)">Trabalhamos com as melhores</div>
+    <h2 style="text-align:center;font-size:1.6rem">Marcas parceiras</h2>
+  </div>
+  <div class="brand-track" id="brandTrack"></div>
+</section>
+
+<!-- ===================== ABOUT ===================== -->
+<section class="about wrap" id="sobre">
+  <div class="about-grid">
+    <div class="about-visual reveal">
+      <div class="slash"></div>
+      <div class="lbl"><span class="logo">JE<span class="e" style="color:#fff">7</span><small>DISTRIBUIDORA</small></span></div>
+      <div class="big">7</div>
+    </div>
+    <div class="about-text">
+      <div class="sec-eyebrow">Quem Somos</div>
+      <h2 class="reveal">Distribuição que o seu negócio pode confiar.</h2>
+      <p class="reveal">A JE7 Distribuidora e Atacadão nasceu para abastecer bares, mercados, adegas e eventos com agilidade e preço justo. Estoque completo, atendimento próximo e a praticidade de fechar tudo pelo WhatsApp.</p>
+      <div class="mvv">
+        <div class="mvv-item reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 7v6c0 5 3.8 8 9 9 5.2-1 9-4 9-9V7Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div><h4>Missão</h4><p>Levar variedade e preço de atacado a cada cliente, com entrega rápida e confiável.</p></div>
+        </div>
+        <div class="mvv-item reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/></svg></div>
+          <div><h4>Visão</h4><p>Ser a distribuidora referência da região, unindo tecnologia e atendimento humano.</p></div>
+        </div>
+        <div class="mvv-item reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7Z"/></svg></div>
+          <div><h4>Valores</h4><p>Compromisso, honestidade nos preços e parceria de verdade com quem revende.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="slash"></div>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <span class="logo">JE<span class="e" style="color:var(--red)">7</span><small>DISTRIBUIDORA</small></span>
+        <p style="margin-top:1rem">Distribuidora e atacadão de bebidas. Faça seu pedido pelo catálogo e finalize no WhatsApp.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Catálogo</h5>
+        <a href="#catalogo">Produtos</a>
+        <a href="#marcas">Marcas</a>
+        <a href="#sobre">Quem Somos</a>
+      </div>
+      <div class="foot-col">
+        <h5>Contato</h5>
+        <a href="#" id="footWpp">WhatsApp</a>
+        <a href="#top">Voltar ao topo</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span id="year"></span> JE7 Distribuidora e Atacadão</span>
+      <span>Catálogo digital · Preços sujeitos a alteração · <a href="admin.html" style="color:inherit;opacity:.7">Painel</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- ===================== FLOATING CART FAB ===================== -->
+<button class="fab" id="fab">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="18" cy="21" r="1.5"/><path d="M2.5 3h2l2.2 12.4a1.5 1.5 0 0 0 1.5 1.2h9.1a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg>
+  <div class="fab-info"><small id="fabItems">0 itens</small><b>Ver Pedido</b></div>
+</button>
+
+<!-- ===================== BACK TO TOP ===================== -->
+<button class="top-btn" id="topBtn" aria-label="Voltar ao topo">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 15 6-6 6 6"/></svg>
+</button>
+
+<!-- ===================== CART DRAWER ===================== -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-label="Carrinho de pedido">
+  <div class="drawer-head">
+    <h3>Seu Pedido <span class="n" id="drawerCount">0</span></h3>
+    <button class="icon-btn" id="closeDrawer" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <div class="tot-row"><span>Itens no pedido</span><span id="totVol">0</span></div>
+    <div class="tot-row"><span>Produtos diferentes</span><span id="totUnits">0</span></div>
+    <div class="tot-row big"><span id="totLabel">Valor estimado (varejo)</span><b id="totValue">R$ 0,00</b></div>
+    <button class="wpp-btn rippleable" id="finish" disabled>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.4 14.2c-.2.6-1.3 1.2-1.8 1.2s-1.7.2-4.6-1.4-3.7-3.6-3.9-3.8-.9-1.2-.9-2.3.6-1.6.8-1.8.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6s.7 1.1 1.4 1.7c1 .8 1.7 1 2 1.2s.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.3.1.4.2.5.3s.1.7-.1 1.3Z"/></svg>
+      Finalizar no WhatsApp
+    </button>
+    <div class="foot-actions">
+      <button class="mini-btn" id="clearCart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>
+        Limpar pedido
+      </button>
+      <button class="mini-btn" id="backCat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        Voltar ao catálogo
+      </button>
+    </div>
+    <p class="foot-note">Você confere o pedido antes de enviar a mensagem.</p>
+  </div>
+</aside>
+
+<!-- ===================== TOAST ===================== -->
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 13 4 4L19 7"/></svg>
+  <span id="toastMsg">Adicionado ao pedido</span>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/data.js"></script>
+<script defer src="js/app.js"></script>
+<!-- ===================== PRODUCT MODAL ===================== -->
+<div class="pm-overlay" id="pmOverlay"></div>
+<aside class="pmodal" id="pmodal" role="dialog" aria-modal="true" aria-label="Detalhes do produto"></aside>
+
+</body>
+</html>
