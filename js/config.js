@@ -2,7 +2,7 @@
    CONFIG — edite aqui
    ============================================================ */
 const CONFIG = {
-  whatsapp: "5541999999999",          // <<< TROQUE pelo número real (DDI+DDD+número)
+  whatsapp: "5541997230558",          // <<< TROQUE pelo número real (DDI+DDD+número)
   storeName: "JE7 Distribuidora e Atacadão",
   priceMode: "atacado",                // valor estimado usa preço de atacado
 
