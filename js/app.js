@@ -390,6 +390,13 @@ function closeDrawer(){ $("#drawer").classList.remove("open"); $("#overlay").cla
 /* ============================================================ EVENTS */
 const debouncedSuggest=debounce(q=>renderSuggest(q),250);
 const debouncedCatalog=debounce(()=>{ state.page=0; renderCatalog(); },350);
+/* ===== TEMA claro/escuro: detecção do sistema + escolha manual persistida ===== */
+function setThemeIcon(dark){ const el=$("#moonIco"); if(!el) return; el.innerHTML = dark
+  ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2m-3-7-1.5 1.5M6.5 17.5 5 19m0-14 1.5 1.5M17.5 17.5 19 19"/>'
+  : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>'; }
+function applyTheme(theme,save){ document.documentElement.setAttribute("data-theme",theme); setThemeIcon(theme==="dark"); if(save){ try{ localStorage.setItem("je7-theme",theme); }catch(e){} } }
+function watchSystemTheme(){ if(!window.matchMedia) return; const mq=window.matchMedia("(prefers-color-scheme: dark)"); const onSys=e=>{ let saved; try{ saved=localStorage.getItem("je7-theme"); }catch(_){} if(saved!=="light"&&saved!=="dark") applyTheme(e.matches?"dark":"light",false); }; if(mq.addEventListener) mq.addEventListener("change",onSys); else if(mq.addListener) mq.addListener(onSys); }
+
 function bind(){
   $("#chips").addEventListener("click",e=>{ const b=e.target.closest("[data-cat]"); if(!b)return; state.catId=b.dataset.cat; state.page=0; renderChips(); renderCatalog(); window.scrollTo({top:$("#catalogo").offsetTop-60,behavior:"smooth"}); });
   $("#fchips").addEventListener("click",e=>{ const b=e.target.closest("[data-f]"); if(!b)return; if(b.dataset.f==="fav"&&!state.favs.size){toast("Você ainda não favoritou nada");return;} state.special=b.dataset.f; state.page=0; renderFilterChips(); renderCatalog(); window.scrollTo({top:$("#catalogo").offsetTop-60,behavior:"smooth"}); });
@@ -448,7 +455,9 @@ function bind(){
   document.addEventListener("click",e=>{ const o=e.target.closest('[data-nav="ofertas"]'); if(o){ e.preventDefault(); state.special="promo"; state.page=0; renderFilterChips(); renderCatalog(); window.scrollTo({top:$("#catalogo").offsetTop-60,behavior:"smooth"}); } });
   const hw=$("#heroWpp"); if(hw) hw.addEventListener("click",()=>window.open("https://wa.me/"+CONFIG.whatsapp,"_blank"));
   $("#favNav").addEventListener("click",()=>{ if(!state.favs.size){toast("Você ainda não favoritou nada");return;} state.special="fav"; state.page=0; renderFilterChips(); renderCatalog(); window.scrollTo({top:$("#catalogo").offsetTop-60,behavior:"smooth"}); });
-  $("#themeBtn").addEventListener("click",()=>{ const dark=document.documentElement.getAttribute("data-theme")==="dark"; document.documentElement.setAttribute("data-theme",dark?"light":"dark"); $("#moonIco").innerHTML=dark?'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>':'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2m-3-7-1.5 1.5M6.5 17.5 5 19m0-14 1.5 1.5M17.5 17.5 19 19"/>'; });
+  setThemeIcon(document.documentElement.getAttribute("data-theme")==="dark");
+  $("#themeBtn").addEventListener("click",()=>{ const dark=document.documentElement.getAttribute("data-theme")==="dark"; applyTheme(dark?"light":"dark",true); });
+  watchSystemTheme();
   window.addEventListener("scroll",()=>{ $("#topBtn").classList.toggle("show",window.scrollY>600); });
   $("#topBtn").addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));
   document.addEventListener("click",e=>{ const el=e.target.closest(".rippleable"); if(!el)return; const r=el.getBoundingClientRect(); const s=document.createElement("span"); s.className="ripple"; const d=Math.max(r.width,r.height); s.style.width=s.style.height=d+"px"; s.style.left=(e.clientX-r.left-d/2)+"px"; s.style.top=(e.clientY-r.top-d/2)+"px"; el.appendChild(s); setTimeout(()=>s.remove(),600); });
