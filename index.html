@@ -56,11 +56,15 @@
   <div class="nav-in">
     <a href="#top" class="logo">JE<span class="e">7</span><small>DISTRIBUIDORA</small></a>
     <nav class="nav-links">
+      <a href="#top">Início</a>
       <a href="#catalogo">Catálogo</a>
-      <a href="#marcas">Marcas</a>
-      <a href="#sobre">Quem Somos</a>
+      <a href="#" data-nav="ofertas">Ofertas</a>
+      <a href="#sobre">Sobre</a>
     </nav>
     <div class="nav-tools">
+      <button class="icon-btn only-mobile" id="searchNav" aria-label="Buscar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
       <button class="icon-btn" id="themeBtn" aria-label="Alternar tema">
         <svg id="moonIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
       </button>
@@ -71,8 +75,15 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="18" cy="21" r="1.5"/><path d="M2.5 3h2l2.2 12.4a1.5 1.5 0 0 0 1.5 1.2h9.1a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg>
         <span class="cart-count" id="navCount">0</span>
       </button>
+      <button class="burger" id="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </div>
+  <nav class="mmenu" id="mobileMenu" aria-hidden="true">
+    <a href="#top" data-mclose>Início</a>
+    <a href="#catalogo" data-mclose>Catálogo</a>
+    <a href="#" data-nav="ofertas" data-mclose>Ofertas</a>
+    <a href="#sobre" data-mclose>Sobre</a>
+  </nav>
 </header>
 
 <span id="top"></span>
@@ -83,17 +94,17 @@
     <div class="hero-slash"></div>
     <div class="hero-noise"></div>
     <div class="hero-content">
-      <span class="hero-eyebrow"><span class="dot"></span>Atacado & Varejo · Entrega rápida</span>
-      <h1>Seu pedido no <em>atacado</em>, direto no WhatsApp.</h1>
-      <p>Bebidas, cervejas, destilados e muito mais com preço de distribuidora. Monte seu carrinho e finalize em segundos.</p>
+      <span class="hero-eyebrow"><span class="dot"></span>Atacado &amp; Varejo · Entrega rápida</span>
+      <h1>Bebidas para o seu <em>negócio</em>, em um só lugar.</h1>
+      <p>Encontre produtos, monte seu pedido e envie tudo pelo WhatsApp.</p>
       <div class="hero-cta">
         <a href="#catalogo" class="btn btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-          Ver Produtos
+          Ver catálogo
         </a>
-        <button class="btn btn-ghost" id="heroOrder">
+        <button class="btn btn-ghost" id="heroWpp">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.4 14.2c-.2.6-1.3 1.2-1.8 1.2s-1.7.2-4.6-1.4-3.7-3.6-3.9-3.8-.9-1.2-.9-2.3.6-1.6.8-1.8.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6s.7 1.1 1.4 1.7c1 .8 1.7 1 2 1.2s.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.3.1.4.2.5.3s.1.7-.1 1.3Z"/></svg>
-          Fazer Pedido
+          Falar com a JE7
         </button>
       </div>
     </div>
@@ -139,8 +150,12 @@
   <div class="fchips" id="fchips"></div>
 </div>
 
+<!-- ===================== ACTIVE FILTERS ===================== -->
+<div class="wrap"><div class="active-filters" id="activeFilters"></div></div>
+
 <!-- ===================== CATALOG RENDER TARGET ===================== -->
 <main class="wrap" id="catalogArea"></main>
+<div class="wrap"><div class="pagination" id="pagination"></div></div>
 
 <!-- ===================== BRANDS ===================== -->
 <section class="brands" id="marcas">
@@ -258,8 +273,10 @@
   <span id="toastMsg">Adicionado ao pedido</span>
 </div>
 
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="js/config.js"></script>
-<script defer src="js/data.js"></script>
+<script defer src="js/theme.js"></script>
+<script defer src="js/supabase.js"></script>
 <script defer src="js/app.js"></script>
 <!-- ===================== PRODUCT MODAL ===================== -->
 <div class="pm-overlay" id="pmOverlay"></div>
