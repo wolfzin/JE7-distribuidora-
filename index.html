@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script>
+/* Tema: aplica cedo (antes de pintar) a escolha manual salva ou, na falta dela, a preferência do sistema. Evita flash. */
+(function(){try{var s=localStorage.getItem("je7-theme");var d=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.setAttribute("data-theme",(s==="light"||s==="dark")?s:(d?"dark":"light"));}catch(e){}})();
+</script>
 <title>JE7 Distribuidora e Atacadão · Catálogo Digital</title>
 
 <!-- ============ SEO / OPEN GRAPH / TWITTER ============ -->
