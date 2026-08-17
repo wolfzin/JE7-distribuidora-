@@ -8,7 +8,7 @@
 
 // colunas mínimas p/ exibição do admin — repare: SEM retail_price
 const ADMIN_PROD_SEL =
-  "id,legacy_id,name,volume,category_id,brand_id,retail_price,wholesale_price,promotion_price," +
+  "id,legacy_id,name,volume,category_id,brand_id,wholesale_price,promotion_price," +
   "is_promotion,is_featured,is_new,is_best_seller,active," +
   "brands(name),categories(name)";
 
@@ -24,7 +24,7 @@ function adaptAdminRow(row){
     c: row.categories ? row.categories.name : "", // nome da categoria (via JOIN)
     category_id: row.category_id,                 // UUID interno
     brand_id: row.brand_id,                       // UUID interno
-    vu: row.retail_price == null ? null : +row.retail_price,
+    vu: null, // retail_price nao e lido pelo Admin (catalogo atacado)
     au: row.wholesale_price == null ? null : +row.wholesale_price,
     pp: row.promotion_price == null ? null : +row.promotion_price,
     promo: !!row.is_promotion,
@@ -79,7 +79,7 @@ function adaptAdminRow(row, imageMap){
     c: row.categories ? row.categories.name : "",
     category_id: row.category_id,
     brand_id: row.brand_id,
-    vu: row.retail_price == null ? null : +row.retail_price,
+    vu: null, // retail_price nao e lido pelo Admin (catalogo atacado)
     au: row.wholesale_price == null ? null : +row.wholesale_price,
     pp: row.promotion_price == null ? null : +row.promotion_price,
     promo: !!row.is_promotion,

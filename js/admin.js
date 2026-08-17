@@ -186,8 +186,8 @@ async function openForm(i){
 
         <div class="grp">Preços</div>
         <div class="f2">
-          <label>Varejo / unidade
-            <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}">
+          <label>Varejo / unidade <small class="hint">(não usado — catálogo atacado)</small>
+            <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}" disabled>
           </label>
           <label>Atacado / unidade
             <input type="number" min="0" step="0.01" id="f_au" value="${p.au??0}">
@@ -296,7 +296,6 @@ async function saveForm(){
     volume: volume || null,
     category_id: categoryId,
     brand_id: brandId,
-    retail_price: num("#f_vu"),
     wholesale_price: num("#f_au"),
     promotion_price: promo ? num("#f_pp") : null,
     is_promotion: promo,
