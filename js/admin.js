@@ -4,7 +4,6 @@
    O catálogo público permanece separado e preservado.
    ============================================================ */
 const LS={p:"je7_admin_products",c:"je7_admin_cats",o:"je7_admin_order"};
-const DEFAULT_IC='<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l3-4h12l3 4"/>';
 let items, cats, order, tab="produtos", editIdx=null;
 let formImageFile=null, formImageRemove=false, formCurrentImageId=null, formCurrentImagePath=null;
 
@@ -60,7 +59,6 @@ function friendlyWrite(e, action){
   return "Erro ao "+action+".";
 }
 
-function shade(hex,p){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r+(p<0?r*p:(255-r)*p)); g=Math.round(g+(p<0?g*p:(255-g)*p)); b=Math.round(b+(p<0?b*p:(255-b)*p)); return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 const slug=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 const money=n=>"R$ "+(+n||0).toFixed(2).replace(".",",");
 const $=s=>document.querySelector(s);
@@ -75,14 +73,11 @@ function load(){
   try{order=JSON.parse(localStorage.getItem(LS.o))}catch(e){order=null}
   if(!order) order=JSON.parse(JSON.stringify(CAT_ORDER));
 }
-function save(){ localStorage.setItem(LS.p,JSON.stringify(items)); localStorage.setItem(LS.c,JSON.stringify(cats)); localStorage.setItem(LS.o,JSON.stringify(order)); markDirty(); }
 function restore(){ if(!confirm("Descartar todas as alterações e voltar ao data.js original?"))return; localStorage.removeItem(LS.p);localStorage.removeItem(LS.c);localStorage.removeItem(LS.o); load(); renderAll(); toast("Restaurado do arquivo original"); }
 let dirty=false;
-function markDirty(){ dirty=true; $("#dirtyDot").style.display="inline-block"; }
 
 /* ---------- util UI ---------- */
 let tT; function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("show"),2200); }
-function brandList(){ return [...new Set(items.map(p=>p.b))].sort(); }
 function thumb(p){
   if(p.img) return `<img class="th" src="${p.img}" alt="" onerror="this.outerHTML='<span class=&quot;th ph&quot;>${(p.n||'?').slice(0,2).toUpperCase()}</span>'">`;
   const t=cats[p.c]?cats[p.c].tile:["#eee","#ddd"];
@@ -448,8 +443,6 @@ async function refreshBrands(force){
     if(seq!==brandSeq) return;
     brandItems=rows;
     brandState="ready";
-    const dl=$("#brandsDL");
-    if(dl) dl.innerHTML=brandItems.map(b=>`<option value="${b.name}">`).join("");
   }catch(e){
     if(seq!==brandSeq) return;
     console.error("Admin: falha ao carregar marcas do Supabase:", e);
@@ -521,7 +514,6 @@ async function renameBrand(id){
     await refreshBrands(true);
     /* produtos já são JOINados pelo nome no próximo refresh; atualiza agora */
     await refreshProducts(true);
-    $("#brandsDL").innerHTML=brandItems.map(x=>`<option value="${x.name}">`).join("");
     toast("Marca renomeada");
   }catch(e){ console.error(e); toast(friendlyWrite(e,"renomear marca")); }
 }
@@ -581,7 +573,6 @@ function init(){
   $("#newCatName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCategory(); } });
   $("#newBrandName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addBrand(); } });
   $("#tab-marcas").addEventListener("click",e=>{ const rn=e.target.closest("[data-bren]"),ac=e.target.closest("[data-bact]"); if(rn)renameBrand(rn.dataset.bren); else if(ac)toggleBrandActive(ac.dataset.bact); });
-  $("#brandsDL").innerHTML=brandList().map(b=>`<option value="${b}">`).join("");
   switchTab("produtos");
 }
 document.addEventListener("DOMContentLoaded",init);

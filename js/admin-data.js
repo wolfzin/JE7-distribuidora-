@@ -12,30 +12,6 @@ const ADMIN_PROD_SEL =
   "is_promotion,is_featured,is_new,is_best_seller,active," +
   "brands(name),categories(name)";
 
-/* Converte a linha do banco para o modelo compacto que o admin.js já consome,
-   preservando os UUIDs (id, category_id, brand_id) e o legacy_id. */
-function adaptAdminRow(row){
-  return {
-    id: row.id,                 // UUID real (interno)
-    legacy_id: row.legacy_id,   // código legado (exibível)
-    n: row.name || "",
-    v: row.volume || "",
-    b: row.brands ? row.brands.name : "",         // nome da marca (via JOIN)
-    c: row.categories ? row.categories.name : "", // nome da categoria (via JOIN)
-    category_id: row.category_id,                 // UUID interno
-    brand_id: row.brand_id,                       // UUID interno
-    vu: null, // retail_price nao e lido pelo Admin (catalogo atacado)
-    au: row.wholesale_price == null ? null : +row.wholesale_price,
-    pp: row.promotion_price == null ? null : +row.promotion_price,
-    promo: !!row.is_promotion,
-    f:  !!row.is_featured,
-    bs: !!row.is_best_seller,
-    nv: !!row.is_new,
-    active: !!row.active,
-    img: null   // imagem ainda não migrada (Storage é etapa futura)
-  };
-}
-
 /* ============================================================
    ADMIN — PRODUTOS + IMAGENS (leitura/escrita autenticada)
    As imagens ficam no Storage bucket "product-images" e a relação
@@ -189,21 +165,6 @@ async function adminDeleteProductImage(imageId, storagePath){
     if(rm.error) console.warn("Imagem removida do banco, mas não do Storage:", rm.error);
   }
   return true;
-}
-
-/* Remove a imagem principal atual de um produto. */
-async function adminDeleteProductImageByProduct(productId){
-  const sb = window.sbAdmin;
-  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
-  const { data, error } = await sb.from("product_images")
-    .select(ADMIN_IMG_SEL)
-    .eq("product_id", productId)
-    .order("is_primary", { ascending:false })
-    .order("sort_order", { ascending:true });
-  if(error) throw error;
-  const first = data?.[0];
-  if(!first) return false;
-  return adminDeleteProductImage(first.id, first.storage_path);
 }
 
 /* ============================================================
