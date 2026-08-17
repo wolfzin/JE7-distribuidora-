@@ -49,3 +49,58 @@ async function adminLoadProducts(){
   if(error) throw error;
   return (data || []).map(adaptAdminRow);
 }
+
+/* ============================================================
+   ADMIN — CATEGORIAS (leitura + escrita autenticada)
+   Etapa Categorias. Gerencia name, sort_order e active.
+   NÃO gerencia cor (cor vem do theme.js por nome).
+   Exclusão é permitida pelo RLS só quando não há produto vinculado
+   (categories_delete_auth_empty): DELETE bloqueado retorna 0 linhas.
+   ============================================================ */
+const ADMIN_CAT_SEL = "id,name,sort_order,active";
+
+async function adminLoadCategories(){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível (verifique login).");
+  const { data, error } = await sb.from("categories").select(ADMIN_CAT_SEL).order("sort_order", { ascending: true });
+  if(error) throw error;
+  return data || [];
+}
+
+/* contagem de produtos por category_id (para exibir e decidir exclusão) */
+async function adminCategoryCounts(){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("products").select("category_id");
+  if(error) throw error;
+  const m = {};
+  (data || []).forEach(r => { if(r.category_id) m[r.category_id] = (m[r.category_id] || 0) + 1; });
+  return m;
+}
+
+async function adminCreateCategory(payload){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("categories").insert(payload).select().single();
+  if(error) throw error;
+  return data;
+}
+
+/* retorna a linha atualizada, ou null se 0 linhas (bloqueado/inexistente) */
+async function adminUpdateCategory(id, patch){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("categories").update(patch).eq("id", id).select();
+  if(error) throw error;
+  return (data && data.length) ? data[0] : null;
+}
+
+/* { ok, blocked, error } — blocked=true quando o RLS impede (produtos vinculados) */
+async function adminDeleteCategory(id){
+  const sb = window.sbAdmin;
+  if(!sb) return { ok:false, blocked:false, error:new Error("Cliente Supabase indisponível.") };
+  const { data, error } = await sb.from("categories").delete().eq("id", id).select();
+  if(error) return { ok:false, blocked:false, error };
+  const n = (data || []).length;
+  return { ok: n>0, blocked: n===0, error:null };
+}

@@ -30,8 +30,35 @@ async function refreshProducts(force){
   if(tab==="produtos") renderProducts();
 }
 /* ganchos chamados por admin-auth.js */
-window.onAdminAuthed=()=>{ refreshProducts(); };
-window.onAdminLoggedOut=()=>{ prodState="init"; items=[]; };
+window.onAdminAuthed=()=>{ refreshProducts(); if(tab==="categorias") refreshCategories(true); };
+window.onAdminLoggedOut=()=>{ prodState="init"; items=[]; catState="init"; catItems=[]; catCounts={}; };
+
+/* ---------- CATEGORIAS (Supabase) ---------- */
+let catState="init", catError=null, catLoading=false, catSeq=0, catItems=[], catCounts={};
+async function refreshCategories(force){
+  if(catLoading) return;
+  if(catState==="ready" && !force) return;
+  catLoading=true; catState="loading"; catError=null;
+  if(tab==="categorias") renderCats();
+  const seq=++catSeq;
+  try{
+    const [list,counts]=await Promise.all([adminLoadCategories(), adminCategoryCounts()]);
+    if(seq!==catSeq) return;
+    catItems=list; catCounts=counts; catState="ready";
+  }catch(e){
+    if(seq!==catSeq) return;
+    console.error("Admin: falha ao carregar categorias do Supabase:", e);
+    catError=e; catItems=[]; catState="error";
+  }finally{ catLoading=false; }
+  if(tab==="categorias") renderCats();
+}
+function friendlyWrite(e, action){
+  const m=((e&&(e.message||e.error_description))||"").toLowerCase();
+  if(m.includes("row-level security")||m.includes("permission")||m.includes("denied")||m.includes("not authorized")) return "Sem permissão para "+action+". Faça login novamente.";
+  if(m.includes("duplicate")||m.includes("unique")) return "Já existe um registro com esse valor.";
+  if(m.includes("failed to fetch")||m.includes("network")||m.includes("fetch")) return "Falha de conexão. Tente novamente.";
+  return "Erro ao "+action+".";
+}
 
 function shade(hex,p){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r+(p<0?r*p:(255-r)*p)); g=Math.round(g+(p<0?g*p:(255-g)*p)); b=Math.round(b+(p<0?b*p:(255-b)*p)); return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 const slug=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
@@ -63,7 +90,7 @@ function thumb(p){
 }
 
 /* ============================================================ TABS */
-function switchTab(t){ tab=t; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("show",p.id==="tab-"+t)); renderAll(); }
+function switchTab(t){ tab=t; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("show",p.id==="tab-"+t)); renderAll(); if(t==="categorias") refreshCategories(); }
 function renderAll(){ if(tab==="produtos")renderProducts(); else if(tab==="categorias")renderCats(); else renderBrands(); }
 
 /* ============================================================ PRODUTOS */
@@ -168,36 +195,87 @@ function saveForm(){
 }
 
 /* ============================================================ CATEGORIAS */
+// cor do swatch vem do mapa visual (theme/data.js) por NOME — Admin NÃO edita cor
+const _CATNZ=(()=>{ const m={}; const nz=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().trim(); try{ Object.keys(CATS).forEach(k=>m[nz(k)]=CATS[k]); }catch(e){} return {m,nz}; })();
+function catSwatch(name){ const t=_CATNZ.m[_CATNZ.nz(name)]; const g=t?t.tile:["#e6e6e6","#d4d4d4"]; return `linear-gradient(135deg,${g[0]},${g[1]})`; }
+const ICO_ON='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICO_OFF='<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.1A9.5 9.5 0 0 1 22 12a17 17 0 0 1-2.2 2.9M6.1 6.1A17 17 0 0 0 2 12s3.5 7 10 7a9.3 9.3 0 0 0 3.9-.8"/></svg>';
+
 function renderCats(){
-  $("#catList").innerHTML=order.map((name,i)=>{
-    const c=cats[name], count=items.filter(p=>p.c===name).length;
-    return `<div class="catrow">
-      <span class="swatch" style="background:linear-gradient(135deg,${c.tile[0]},${c.tile[1]})"></span>
-      <div class="catinfo"><b>${name}</b><div class="sub">${count} produto(s)</div></div>
+  const host=$("#catList"); if(!host) return;
+  if(catState==="init"||catState==="loading"){ host.innerHTML=`<div class="empty" style="padding:1.2rem">Carregando categorias…</div>`; return; }
+  if(catState==="error"){ host.innerHTML=`<div class="empty" style="padding:1.2rem">Não foi possível carregar as categorias do servidor.<br><button class="btn" id="catRetry" style="margin-top:.7rem">Tentar novamente</button></div>`; const r=$("#catRetry"); if(r) r.onclick=()=>refreshCategories(true); return; }
+  if(!catItems.length){ host.innerHTML=`<div class="empty" style="padding:1.2rem">Nenhuma categoria cadastrada.</div>`; return; }
+  host.innerHTML=catItems.map((c,i)=>{
+    const count=catCounts[c.id]||0;
+    return `<div class="catrow"${c.active?"":' style="opacity:.55"'}>
+      <span class="swatch" style="background:${catSwatch(c.name)}"></span>
+      <div class="catinfo"><b>${c.name}</b>${c.active?"":' <span class="pill" style="background:#f3d6d6;color:#a33">Inativa</span>'}<div class="sub">${count} produto(s) · ordem ${c.sort_order==null?"—":c.sort_order}</div></div>
       <div class="acts">
         <button class="ic" data-cup="${i}" ${i===0?"disabled":""} title="Subir"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
-        <button class="ic" data-cdn="${i}" ${i===order.length-1?"disabled":""} title="Descer"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button>
-        <button class="ic" data-cren="${name}" title="Renomear"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
-        <button class="ic danger" data-cdel="${name}" ${count?"disabled":""} title="${count?"Só é possível excluir categoria vazia":"Excluir"}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
+        <button class="ic" data-cdn="${i}" ${i===catItems.length-1?"disabled":""} title="Descer"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button>
+        <button class="ic" data-cren="${c.id}" title="Renomear"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
+        <button class="ic" data-cact="${c.id}" title="${c.active?"Desativar":"Ativar"}">${c.active?ICO_OFF:ICO_ON}</button>
+        <button class="ic danger" data-cdel="${c.id}" ${count?"disabled":""} title="${count?"Só é possível excluir categoria sem produtos":"Excluir"}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
       </div>
     </div>`;
   }).join("");
 }
-function addCategory(){
-  const name=$("#newCatName").value.trim(); const color=$("#newCatColor").value;
-  if(!name){toast("Digite o nome da categoria");return;}
-  if(cats[name]){toast("Categoria já existe");return;}
-  cats[name]={ic:DEFAULT_IC,tile:[shade(color,.82),shade(color,.55)],tileD:[shade(color,-.55),shade(color,-.72)]};
-  order.push(name); $("#newCatName").value=""; save(); renderCats(); toast("Categoria adicionada");
+async function addCategory(){
+  const name=($("#newCatName").value||"").trim();
+  if(!name){ toast("Digite o nome da categoria"); return; }
+  if(catItems.some(c=>(c.name||"").toLowerCase()===name.toLowerCase())){ toast("Categoria já existe"); return; }
+  const maxOrder=catItems.reduce((m,c)=>Math.max(m, c.sort_order||0), 0);
+  const btn=$("#addCatBtn"); if(btn) btn.disabled=true;
+  try{
+    await adminCreateCategory({ name, sort_order:maxOrder+1, active:true });
+    $("#newCatName").value="";
+    await refreshCategories(true);
+    toast("Categoria adicionada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"adicionar categoria")); }
+  finally{ if(btn) btn.disabled=false; }
 }
-function renameCat(old){
-  const nn=prompt("Novo nome da categoria:",old); if(!nn||nn===old)return;
-  if(cats[nn]){toast("Já existe uma categoria com esse nome");return;}
-  cats[nn]=cats[old]; delete cats[old]; order=order.map(c=>c===old?nn:c);
-  items.forEach(p=>{if(p.c===old)p.c=nn;}); save(); renderCats(); toast("Categoria renomeada");
+async function renameCat(id){
+  const c=catItems.find(x=>x.id===id); if(!c) return;
+  const nn=prompt("Novo nome da categoria:", c.name); if(nn===null) return;
+  const name=nn.trim(); if(!name||name===c.name) return;
+  if(catItems.some(x=>x.id!==id && (x.name||"").toLowerCase()===name.toLowerCase())){ toast("Já existe categoria com esse nome"); return; }
+  try{
+    const r=await adminUpdateCategory(id,{ name });
+    if(!r){ toast("Não foi possível renomear (sem permissão?)"); return; }
+    await refreshCategories(true); toast("Categoria renomeada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"renomear categoria")); }
 }
-function delCat(name){ if(items.some(p=>p.c===name)){toast("Categoria tem produtos");return;} delete cats[name]; order=order.filter(c=>c!==name); save(); renderCats(); toast("Categoria excluída"); }
-function moveCat(i,d){ const j=i+d; if(j<0||j>=order.length)return; [order[i],order[j]]=[order[j],order[i]]; save(); renderCats(); }
+async function toggleCatActive(id){
+  const c=catItems.find(x=>x.id===id); if(!c) return;
+  try{
+    const r=await adminUpdateCategory(id,{ active: !c.active });
+    if(!r){ toast("Não foi possível alterar o status"); return; }
+    await refreshCategories(true); toast(c.active?"Categoria desativada":"Categoria ativada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"alterar status")); }
+}
+async function moveCat(i,d){
+  const j=i+d; if(j<0||j>=catItems.length) return;
+  const a=catItems[i], b=catItems[j];
+  const ao=a.sort_order, bo=b.sort_order;
+  try{
+    await adminUpdateCategory(a.id,{ sort_order: bo });
+    await adminUpdateCategory(b.id,{ sort_order: ao });
+    await refreshCategories(true);
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"reordenar")); }
+}
+async function delCat(id){
+  const c=catItems.find(x=>x.id===id); if(!c) return;
+  const count=catCounts[id]||0;
+  if(count>0){ toast("Não é possível excluir: "+count+" produto(s) vinculado(s)."); return; }
+  if(!confirm('Excluir a categoria "'+c.name+'"?')) return;
+  try{
+    const res=await adminDeleteCategory(id);
+    if(res.error){ console.error(res.error); toast(friendlyWrite(res.error,"excluir categoria")); return; }
+    if(res.blocked){ toast("Não foi possível excluir: a categoria possui produtos vinculados."); await refreshCategories(true); return; }
+    await refreshCategories(true); toast("Categoria excluída");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"excluir categoria")); }
+}
 
 /* ============================================================ MARCAS */
 function renderBrands(){
@@ -249,7 +327,8 @@ function init(){
   $("#addCatBtn").onclick=addCategory;
   // delegação
   $("#tab-produtos").addEventListener("click",e=>{ const ed=e.target.closest("[data-edit]"),dl=e.target.closest("[data-del]"); if(ed)openForm(+ed.dataset.edit); if(dl){ if(confirm("Excluir "+items[+dl.dataset.del].n+"?")){items.splice(+dl.dataset.del,1);save();renderProducts();toast("Produto excluído");} } });
-  $("#tab-categorias").addEventListener("click",e=>{ const up=e.target.closest("[data-cup]"),dn=e.target.closest("[data-cdn]"),rn=e.target.closest("[data-cren]"),dl=e.target.closest("[data-cdel]"); if(up)moveCat(+up.dataset.cup,-1); if(dn)moveCat(+dn.dataset.cdn,1); if(rn)renameCat(rn.dataset.cren); if(dl&&!dl.disabled)delCat(dl.dataset.cdel); });
+  $("#tab-categorias").addEventListener("click",e=>{ const up=e.target.closest("[data-cup]"),dn=e.target.closest("[data-cdn]"),rn=e.target.closest("[data-cren]"),ac=e.target.closest("[data-cact]"),dl=e.target.closest("[data-cdel]"); if(up&&!up.disabled)moveCat(+up.dataset.cup,-1); else if(dn&&!dn.disabled)moveCat(+dn.dataset.cdn,1); else if(rn)renameCat(rn.dataset.cren); else if(ac)toggleCatActive(ac.dataset.cact); else if(dl&&!dl.disabled)delCat(dl.dataset.cdel); });
+  $("#newCatName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCategory(); } });
   $("#tab-marcas").addEventListener("click",e=>{ const rn=e.target.closest("[data-bren]"); if(rn)renameBrand(rn.dataset.bren); });
   $("#brandsDL").innerHTML=brandList().map(b=>`<option value="${b}">`).join("");
   switchTab("produtos");
