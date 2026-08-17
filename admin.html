@@ -132,7 +132,7 @@ body.locked .top,body.locked .wrap{display:none!important}
 </div>
 
 <div class="wrap">
-  <div class="hero-note">Este painel edita o catálogo <b>no seu navegador</b> e gera um arquivo <b>data.js</b> para você subir no servidor (pasta <code>js/</code>). Sem login e sem banco de dados — simples e rápido. A estrutura já está pronta para um backend real no futuro, sem retrabalho.</div>
+  <div class="hero-note">Painel administrativo conectado ao <b>Supabase</b>. Produtos, categorias e marcas usam o banco autenticado; o catálogo público continua separado.</div>
 
   <div class="tabs">
     <button class="tab on" data-tab="produtos">Produtos</button>
@@ -167,7 +167,10 @@ body.locked .top,body.locked .wrap{display:none!important}
   <!-- MARCAS -->
   <section class="panel" id="tab-marcas">
     <div class="card"><div id="brandList"></div></div>
-    <p class="hint">Para criar uma marca nova, basta digitá-la no cadastro de um produto. Renomear aqui atualiza todos os produtos daquela marca.</p>
+    <div class="addcat">
+      <input type="text" id="newBrandName" placeholder="Nova marca…">
+      <button class="btn" id="addBrandBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+    </div>
   </section>
 </div>
 
