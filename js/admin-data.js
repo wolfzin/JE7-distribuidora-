@@ -1,11 +1,9 @@
 /* ============================================================
-   ADMIN — Camada de LEITURA (Supabase autenticado)
-   Etapa atual: SOMENTE leitura de produtos.
-   - Usa o cliente autenticado exposto por admin-auth.js (window.sbAdmin).
-   - Lê public.products (ativos E inativos) com JOIN de nomes de
-     categoria/marca para exibição, mantendo os UUIDs no objeto.
-   - NÃO seleciona/usa retail_price. NÃO escreve nada (sem INSERT/UPDATE/DELETE).
-   - Imagens NÃO migradas nesta etapa (img fica null; thumb usa fallback).
+   ADMIN — Camada de dados (Supabase autenticado)
+   Produtos, categorias, marcas e imagens usam o cliente autenticado.
+   Produtos permitem INSERT/UPDATE; não existe DELETE de products.
+   Imagens usam public.product_images + Storage "product-images".
+   O catálogo público permanece intocado nesta etapa.
    ============================================================ */
 
 // colunas mínimas p/ exibição do admin — repare: SEM retail_price
@@ -38,27 +36,84 @@ function adaptAdminRow(row){
   };
 }
 
-/* Busca TODOS os produtos (ativos + inativos) numa única consulta.
-   Lança erro para o chamador tratar (mensagem + retry). */
+/* ============================================================
+   ADMIN — PRODUTOS + IMAGENS (leitura/escrita autenticada)
+   As imagens ficam no Storage bucket "product-images" e a relação
+   fica em public.product_images.
+   ============================================================ */
+const ADMIN_IMG_SEL = "id,product_id,storage_path,is_primary,sort_order";
+const ADMIN_IMAGE_BUCKET = "product-images";
+
+function adminPublicImageUrl(path){
+  if(!path) return null;
+  const sb = window.sbAdmin;
+  if(!sb) return null;
+  const r = sb.storage.from(ADMIN_IMAGE_BUCKET).getPublicUrl(path);
+  return r?.data?.publicUrl || null;
+}
+
+async function adminLoadProductImages(){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("product_images")
+    .select(ADMIN_IMG_SEL)
+    .order("is_primary", { ascending:false })
+    .order("sort_order", { ascending:true });
+  if(error) throw error;
+
+  const map = {};
+  for(const row of (data || [])){
+    if(!map[row.product_id]) map[row.product_id] = row;
+  }
+  return map;
+}
+
+function adaptAdminRow(row, imageMap){
+  const im = imageMap?.[row.id] || null;
+  return {
+    id: row.id,
+    legacy_id: row.legacy_id,
+    n: row.name || "",
+    v: row.volume || "",
+    b: row.brands ? row.brands.name : "",
+    c: row.categories ? row.categories.name : "",
+    category_id: row.category_id,
+    brand_id: row.brand_id,
+    vu: row.retail_price == null ? null : +row.retail_price,
+    au: row.wholesale_price == null ? null : +row.wholesale_price,
+    pp: row.promotion_price == null ? null : +row.promotion_price,
+    promo: !!row.is_promotion,
+    f:  !!row.is_featured,
+    bs: !!row.is_best_seller,
+    nv: !!row.is_new,
+    active: !!row.active,
+    img: im ? adminPublicImageUrl(im.storage_path) : null,
+    image_id: im?.id || null,
+    image_path: im?.storage_path || null
+  };
+}
+
+/* Busca TODOS os produtos (ativos + inativos) e sua imagem principal. */
 async function adminLoadProducts(){
   const sb = window.sbAdmin;
   if(!sb) throw new Error("Cliente Supabase do admin indisponível (verifique login/configuração).");
-  const { data, error } = await sb
-    .from("products")
-    .select(ADMIN_PROD_SEL)      // sem filtro de active -> traz ativos e inativos
-    .order("name", { ascending: true });
+  const [{ data, error }, imageMap] = await Promise.all([
+    sb.from("products")
+      .select(ADMIN_PROD_SEL)
+      .order("name", { ascending: true }),
+    adminLoadProductImages()
+  ]);
   if(error) throw error;
-  return (data || []).map(adaptAdminRow);
+  return (data || []).map(row => adaptAdminRow(row, imageMap));
 }
 
-/* Escrita autenticada de produtos.
-   Não existe DELETE de products por policy/RLS: produto é desativado via active=false. */
+/* Escrita autenticada de produtos. */
 async function adminCreateProduct(payload){
   const sb = window.sbAdmin;
   if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
   const { data, error } = await sb.from("products").insert(payload).select(ADMIN_PROD_SEL).single();
   if(error) throw error;
-  return adaptAdminRow(data);
+  return adaptAdminRow(data, {});
 }
 
 async function adminUpdateProduct(id, patch){
@@ -66,7 +121,89 @@ async function adminUpdateProduct(id, patch){
   if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
   const { data, error } = await sb.from("products").update(patch).eq("id", id).select(ADMIN_PROD_SEL);
   if(error) throw error;
-  return (data && data.length) ? adaptAdminRow(data[0]) : null;
+  return (data && data.length) ? adaptAdminRow(data[0], {}) : null;
+}
+
+/* ---------- IMAGENS DE PRODUTO ---------- */
+function adminValidateImage(file){
+  if(!file) return "Selecione uma imagem.";
+  const allowed = ["image/jpeg","image/png","image/webp"];
+  if(!allowed.includes(file.type)) return "Formato inválido. Use JPG, PNG ou WEBP.";
+  if(file.size > 8 * 1024 * 1024) return "A imagem deve ter no máximo 8 MB.";
+  return null;
+}
+
+async function adminUploadProductImage(productId, file){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const validation = adminValidateImage(file);
+  if(validation) throw new Error(validation);
+
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `products/${productId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+
+  const up = await sb.storage.from(ADMIN_IMAGE_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false
+  });
+  if(up.error) throw up.error;
+
+  try{
+    /* Só uma imagem principal por produto. */
+    const { error: demoteError } = await sb.from("product_images")
+      .update({ is_primary:false })
+      .eq("product_id", productId);
+    if(demoteError) throw demoteError;
+
+    const { data, error } = await sb.from("product_images")
+      .insert({
+        product_id: productId,
+        storage_path: path,
+        is_primary: true,
+        sort_order: 0
+      })
+      .select(ADMIN_IMG_SEL)
+      .single();
+    if(error) throw error;
+    return { ...data, publicUrl: adminPublicImageUrl(path) };
+  }catch(e){
+    /* Evita deixar arquivo órfão se a relação não puder ser criada. */
+    await sb.storage.from(ADMIN_IMAGE_BUCKET).remove([path]).catch(()=>{});
+    throw e;
+  }
+}
+
+async function adminDeleteProductImage(imageId, storagePath){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+
+  const { data, error } = await sb.from("product_images")
+    .delete()
+    .eq("id", imageId)
+    .select(ADMIN_IMG_SEL);
+  if(error) throw error;
+  if(!data?.length) return false;
+
+  if(storagePath){
+    const rm = await sb.storage.from(ADMIN_IMAGE_BUCKET).remove([storagePath]);
+    if(rm.error) console.warn("Imagem removida do banco, mas não do Storage:", rm.error);
+  }
+  return true;
+}
+
+/* Remove a imagem principal atual de um produto. */
+async function adminDeleteProductImageByProduct(productId){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("product_images")
+    .select(ADMIN_IMG_SEL)
+    .eq("product_id", productId)
+    .order("is_primary", { ascending:false })
+    .order("sort_order", { ascending:true });
+  if(error) throw error;
+  const first = data?.[0];
+  if(!first) return false;
+  return adminDeleteProductImage(first.id, first.storage_path);
 }
 
 /* ============================================================

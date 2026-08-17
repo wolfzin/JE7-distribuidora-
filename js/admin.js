@@ -1,12 +1,12 @@
 /* ============================================================
-   PAINEL ADMINISTRATIVO JE7 — sem backend/login.
-   Edita em memória + rascunho no localStorage; exporta data.js
-   pronto para substituir no servidor. Prepara a base para um
-   backend real no futuro (mesma estrutura de dados).
+   PAINEL ADMINISTRATIVO JE7.
+   Autenticação e dados administrativos usam Supabase.
+   O catálogo público permanece separado e preservado.
    ============================================================ */
 const LS={p:"je7_admin_products",c:"je7_admin_cats",o:"je7_admin_order"};
 const DEFAULT_IC='<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l3-4h12l3 4"/>';
 let items, cats, order, tab="produtos", editIdx=null;
+let formImageFile=null, formImageRemove=false, formCurrentImageId=null, formCurrentImagePath=null;
 
 /* ---------- LEITURA DE PRODUTOS (Supabase) ---------- */
 /* items agora vem de public.products (via admin-data.js), não mais do data.js. */
@@ -206,8 +206,18 @@ async function openForm(i){
           <label class="c"><input type="checkbox" id="f_active" ${p.active!==false?"checked":""}> Produto ativo</label>
         </div>
 
-        <div class="grp">Imagem</div>
-        <p class="hint">A migração das imagens fica para a próxima etapa. Por enquanto o formulário não altera o Storage.</p>
+        <div class="grp">Imagem do produto</div>
+        <div id="productImageBox" style="display:flex;align-items:center;gap:.9rem;flex-wrap:wrap">
+          <div id="productImagePreview">
+            ${p.img ? `<img src="${p.img}" alt="" style="width:78px;height:78px;object-fit:contain;border:1px solid var(--border);border-radius:12px;background:#fff">` :
+              `<span class="th ph" style="width:78px;height:78px">${(p.n||"?").slice(0,2).toUpperCase()}</span>`}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.45rem">
+            <input type="file" id="f_img" accept="image/jpeg,image/png,image/webp">
+            <small class="hint">JPG, PNG ou WEBP · até 8 MB</small>
+            ${p.image_id ? `<button type="button" class="btn ghost" id="removeImgBtn" style="width:max-content">Remover imagem atual</button>` : ""}
+          </div>
+        </div>
       </div>
 
       <div class="sheet-foot">
@@ -224,6 +234,36 @@ async function openForm(i){
     if(!e.target.checked) $("#f_pp").value="";
   };
   $("#f_pp").disabled=!p.promo;
+
+  formImageFile=null;
+  formImageRemove=false;
+  formCurrentImageId=p.image_id||null;
+  formCurrentImagePath=p.image_path||null;
+
+  const imgInput=$("#f_img");
+  if(imgInput) imgInput.onchange=e=>{
+    const file=e.target.files?.[0]||null;
+    const err=adminValidateImage(file);
+    if(err){ e.target.value=""; formImageFile=null; toast(err); return; }
+    formImageFile=file;
+    const preview=$("#productImagePreview");
+    if(preview){
+      const url=URL.createObjectURL(file);
+      preview.innerHTML=`<img src="${url}" alt="" style="width:78px;height:78px;object-fit:contain;border:1px solid var(--border);border-radius:12px;background:#fff">`;
+    }
+    formImageRemove=false;
+  };
+
+  const removeImgBtn=$("#removeImgBtn");
+  if(removeImgBtn) removeImgBtn.onclick=()=>{
+    formImageRemove=true;
+    formImageFile=null;
+    const input=$("#f_img"); if(input) input.value="";
+    const preview=$("#productImagePreview");
+    if(preview) preview.innerHTML=`<span class="th ph" style="width:78px;height:78px">${(p.n||"?").slice(0,2).toUpperCase()}</span>`;
+    removeImgBtn.disabled=true;
+    removeImgBtn.textContent="Imagem será removida ao salvar";
+  };
 
   $("#formClose").onclick=$("#formCancel").onclick=closeForm;
   $("#formOv").onclick=closeForm;
@@ -270,15 +310,28 @@ async function saveForm(){
   if(btn) btn.disabled=true;
 
   try{
+    let savedProduct;
     if(editIdx===null){
-      await adminCreateProduct(payload);
+      savedProduct=await adminCreateProduct(payload);
       toast("Produto adicionado");
     }else{
       const current=items[editIdx];
-      const updated=await adminUpdateProduct(current.id,payload);
-      if(!updated){ toast("Não foi possível salvar o produto."); return; }
+      savedProduct=await adminUpdateProduct(current.id,payload);
+      if(!savedProduct){ toast("Não foi possível salvar o produto."); return; }
       toast("Produto salvo");
     }
+
+    /* Imagem é processada somente depois que o produto possui UUID. */
+    const productId=savedProduct?.id;
+    if(productId && formImageFile){
+      await adminUploadProductImage(productId,formImageFile);
+      if(formCurrentImageId) await adminDeleteProductImage(formCurrentImageId,formCurrentImagePath);
+      toast("Produto e imagem salvos");
+    }else if(productId && formImageRemove && formCurrentImageId){
+      await adminDeleteProductImage(formCurrentImageId,formCurrentImagePath);
+      toast("Imagem removida");
+    }
+
     closeForm();
     await refreshProducts(true);
   }catch(e){
