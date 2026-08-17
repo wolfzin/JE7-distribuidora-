@@ -120,80 +120,174 @@ function renderProducts(){
       <td class="flags">${p.active?"":'<span class="pill" style="background:#f3d6d6;color:#a33">Inativo</span> '}${p.f?'<span class="fl f">D</span>':''}${p.bs?'<span class="fl b">V</span>':''}${p.nv?'<span class="fl n">N</span>':''}${p.promo?'<span class="fl p">%</span>':''}</td>
       <td class="acts">
         <button class="ic" data-edit="${i}" title="Ver / editar"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
-        <button class="ic danger" data-del="${i}" title="Excluir"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
       </td>
     </tr>`).join("") || `<tr><td colspan="7" class="empty">${q?"Nenhum produto para essa busca.":"Nenhum produto."}</td></tr>`;
 }
-function openForm(i){
+async function openForm(i){
   editIdx = (i===null||i===undefined)?null:i;
-  const p = editIdx===null ? {n:"",b:"",c:order[0]||"",v:"",au:0,ap:0,vp:0,vu:0,pk:1} : JSON.parse(JSON.stringify(items[i]));
-  const autoPath = "images/products/"+slug((p.n||"produto")+"-"+(p.v||""))+".jpg";
+
+  /* As listas de categorias/marcas vêm do Supabase. Se ainda não carregaram,
+     garantimos a carga antes de montar o formulário. */
+  try{
+    await Promise.all([
+      brandState==="ready" ? Promise.resolve() : refreshBrands(true),
+      catState==="ready" ? Promise.resolve() : refreshCategories(true)
+    ]);
+  }catch(e){
+    console.error("Admin: falha ao preparar formulário:", e);
+    toast("Não foi possível carregar categorias/marcas.");
+    return;
+  }
+
+  const p = editIdx===null
+    ? {id:null,legacy_id:"",n:"",b:"",c:"",category_id:null,brand_id:null,v:"",vu:0,au:0,pp:null,promo:false,f:false,bs:false,nv:false,active:true}
+    : JSON.parse(JSON.stringify(items[i]));
+
+  const categoryOptions = catItems.map(c =>
+    `<option value="${c.id}" ${c.id===p.category_id?"selected":""}>${c.name}${c.active?"":" (inativa)"}</option>`
+  ).join("");
+
+  const brandOptions = brandItems.map(b =>
+    `<option value="${b.id}" ${b.id===p.brand_id?"selected":""}>${b.name}${b.active?"":" (inativa)"}</option>`
+  ).join("");
+
   $("#formRoot").innerHTML=`
     <div class="ov" id="formOv"></div>
     <div class="sheet">
-      <div class="sheet-head"><h3>${editIdx===null?"Novo produto":"Editar produto"}</h3><button class="ic" id="formClose"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sheet-head">
+        <h3>${editIdx===null?"Novo produto":"Editar produto"}</h3>
+        <button class="ic" id="formClose" title="Fechar"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+
       <div class="sheet-body">
-        <div class="prev" id="prev">${thumb(p)}</div>
         <div class="f2">
-          <label>Nome<input id="f_n" value="${p.n||""}"></label>
-          <label>Volume<input id="f_v" value="${p.v||""}" placeholder="2L, 350ml, 1kg…"></label>
-          <label>Marca<input id="f_b" list="brandsDL" value="${p.b||""}"></label>
-          <label>Categoria<select id="f_c">${order.map(c=>`<option ${c===p.c?"selected":""}>${c}</option>`).join("")}</select></label>
+          <label>Código / legacy_id
+            <input id="f_legacy" value="${p.legacy_id||""}" placeholder="Ex.: 217">
+          </label>
+          <label>Volume
+            <input id="f_v" value="${p.v||""}" placeholder="2L, 350ml, 1kg…">
+          </label>
+          <label>Nome
+            <input id="f_n" value="${p.n||""}" placeholder="Nome do produto">
+          </label>
+          <label>Categoria
+            <select id="f_c">
+              <option value="">Sem categoria</option>
+              ${categoryOptions}
+            </select>
+          </label>
+          <label>Marca
+            <select id="f_b">
+              <option value="">Sem marca</option>
+              ${brandOptions}
+            </select>
+          </label>
         </div>
+
         <div class="grp">Preços</div>
-        <div class="f4">
-          <label>Varejo / un<input type="number" step="0.01" id="f_vu" value="${p.vu||0}"></label>
-          <label>Atacado / un<input type="number" step="0.01" id="f_au" value="${p.au||0}"></label>
-          <label>Varejo / fardo<input type="number" step="0.01" id="f_vp" value="${p.vp||0}"></label>
-          <label>Atacado / fardo<input type="number" step="0.01" id="f_ap" value="${p.ap||0}"></label>
-          <label>Un por fardo<input type="number" step="1" id="f_pk" value="${p.pk||1}"></label>
+        <div class="f2">
+          <label>Varejo / unidade
+            <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}">
+          </label>
+          <label>Atacado / unidade
+            <input type="number" min="0" step="0.01" id="f_au" value="${p.au??0}">
+          </label>
+          <label>Preço promocional
+            <input type="number" min="0" step="0.01" id="f_pp" value="${p.pp??""}">
+          </label>
         </div>
+
         <div class="grp">Marcações</div>
         <div class="chk">
           <label class="c"><input type="checkbox" id="f_f" ${p.f?"checked":""}> Destaque</label>
           <label class="c"><input type="checkbox" id="f_bs" ${p.bs?"checked":""}> Mais vendido</label>
           <label class="c"><input type="checkbox" id="f_nv" ${p.nv?"checked":""}> Novidade</label>
           <label class="c"><input type="checkbox" id="f_promo" ${p.promo?"checked":""}> Promoção</label>
-          <label id="ppWrap" style="${p.promo?"":"display:none"}">Preço promo (varejo)<input type="number" step="0.01" id="f_pp" value="${p.pp||""}"></label>
+          <label class="c"><input type="checkbox" id="f_active" ${p.active!==false?"checked":""}> Produto ativo</label>
         </div>
-        <div class="grp">Disponibilidade & imagem</div>
-        <div class="f2">
-          <label>Disponibilidade<select id="f_av"><option value="" ${!p.av?"selected":""}>Em estoque</option><option value="encomenda" ${p.av==="encomenda"?"selected":""}>Sob encomenda</option></select></label>
-          <label>Imagem (caminho ou URL)<input id="f_img" value="${p.img||""}" placeholder="${autoPath}"></label>
-        </div>
-        <p class="hint">Deixe a imagem em branco para usar a busca automática (<code id="autoP">${autoPath}</code>) ou a silhueta. Para subir um arquivo, salve-o em <b>images/products/</b> com esse nome, ou cole uma URL.</p>
-        <label class="file">Selecionar arquivo para pré-visualizar<input type="file" id="f_file" accept="image/*"></label>
+
+        <div class="grp">Imagem</div>
+        <p class="hint">A migração das imagens fica para a próxima etapa. Por enquanto o formulário não altera o Storage.</p>
       </div>
+
       <div class="sheet-foot">
-        ${editIdx!==null?'<button class="btn ghost danger" id="formDel">Excluir</button>':'<span></span>'}
-        <div><button class="btn ghost" id="formCancel">Cancelar</button><button class="btn" id="formSave">Salvar</button></div>
+        <span>${editIdx!==null && p.active===false ? '<span class="pill" style="background:#f3d6d6;color:#a33">Inativo</span>' : ""}</span>
+        <div>
+          <button class="btn ghost" id="formCancel">Cancelar</button>
+          <button class="btn" id="formSave">Salvar</button>
+        </div>
       </div>
     </div>`;
-  const upd=()=>{ const n=$("#f_n").value,v=$("#f_v").value; $("#autoP").textContent="images/products/"+slug((n||"produto")+"-"+v)+".jpg"; };
-  $("#f_n").oninput=upd; $("#f_v").oninput=upd;
-  $("#f_promo").onchange=e=>$("#ppWrap").style.display=e.target.checked?"":"none";
-  $("#f_img").oninput=e=>{ const p2={n:$("#f_n").value,c:$("#f_c").value,img:e.target.value}; $("#prev").innerHTML=thumb(p2); };
-  $("#f_file").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>$("#prev").innerHTML=`<img class="th" src="${r.result}">`; r.readAsDataURL(f); toast("Pré-visualização apenas — salve o arquivo em images/products/"); };
-  $("#formClose").onclick=$("#formCancel").onclick=closeForm; $("#formOv").onclick=closeForm;
-  $("#formSave").onclick=saveForm;
-  const del=$("#formDel"); if(del) del.onclick=()=>{ if(confirm("Excluir este produto?")){ items.splice(editIdx,1); save(); closeForm(); renderProducts(); toast("Produto excluído"); } };
-}
-function closeForm(){ $("#formRoot").innerHTML=""; }
-function saveForm(){
-  const num=id=>parseFloat($(id).value)||0;
-  const p={
-    n:$("#f_n").value.trim(), b:$("#f_b").value.trim(), c:$("#f_c").value, v:$("#f_v").value.trim(),
-    vu:num("#f_vu"), au:num("#f_au"), vp:num("#f_vp"), ap:num("#f_ap"), pk:parseInt($("#f_pk").value)||1
+
+  $("#f_promo").onchange=e=>{
+    $("#f_pp").disabled=!e.target.checked;
+    if(!e.target.checked) $("#f_pp").value="";
   };
-  if(!p.n){ toast("Informe o nome"); return; }
-  if($("#f_f").checked)p.f=1; if($("#f_bs").checked)p.bs=1; if($("#f_nv").checked)p.nv=1;
-  if($("#f_promo").checked){ p.promo=1; p.pp=parseFloat($("#f_pp").value)||p.vu; }
-  if($("#f_av").value)p.av=$("#f_av").value;
-  if($("#f_img").value.trim())p.img=$("#f_img").value.trim();
-  if(editIdx===null) items.push(p); else items[editIdx]=p;
-  save(); closeForm(); renderProducts(); toast(editIdx===null?"Produto adicionado":"Produto salvo");
+  $("#f_pp").disabled=!p.promo;
+
+  $("#formClose").onclick=$("#formCancel").onclick=closeForm;
+  $("#formOv").onclick=closeForm;
+  $("#formSave").onclick=saveForm;
 }
 
+function closeForm(){ $("#formRoot").innerHTML=""; }
+
+async function saveForm(){
+  const num=id=>{
+    const v=parseFloat($(id).value);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const legacy=$("#f_legacy").value.trim();
+  const name=$("#f_n").value.trim();
+  const volume=$("#f_v").value.trim();
+  const categoryId=$("#f_c").value || null;
+  const brandId=$("#f_b").value || null;
+  const promo=$("#f_promo").checked;
+
+  if(!legacy){ toast("Informe o código / legacy_id"); return; }
+  if(!name){ toast("Informe o nome"); return; }
+
+  /* Campos exatamente correspondentes à tabela public.products.
+     Não enviamos campos legados de fardo, imagem ou qualquer coluna
+     que não exista no modelo atual. */
+  const payload={
+    legacy_id: legacy,
+    name,
+    volume: volume || null,
+    category_id: categoryId,
+    brand_id: brandId,
+    retail_price: num("#f_vu"),
+    wholesale_price: num("#f_au"),
+    promotion_price: promo ? num("#f_pp") : null,
+    is_promotion: promo,
+    is_featured: $("#f_f").checked,
+    is_best_seller: $("#f_bs").checked,
+    is_new: $("#f_nv").checked,
+    active: $("#f_active").checked
+  };
+
+  const btn=$("#formSave");
+  if(btn) btn.disabled=true;
+
+  try{
+    if(editIdx===null){
+      await adminCreateProduct(payload);
+      toast("Produto adicionado");
+    }else{
+      const current=items[editIdx];
+      const updated=await adminUpdateProduct(current.id,payload);
+      if(!updated){ toast("Não foi possível salvar o produto."); return; }
+      toast("Produto salvo");
+    }
+    closeForm();
+    await refreshProducts(true);
+  }catch(e){
+    console.error("Admin: falha ao salvar produto:", e);
+    toast(friendlyWrite(e,"salvar produto"));
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+}
 /* ============================================================ CATEGORIAS */
 // cor do swatch vem do mapa visual (theme/data.js) por NOME — Admin NÃO edita cor
 const _CATNZ=(()=>{ const m={}; const nz=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().trim(); try{ Object.keys(CATS).forEach(k=>m[nz(k)]=CATS[k]); }catch(e){} return {m,nz}; })();
@@ -427,7 +521,10 @@ function init(){
   $("#addCatBtn").onclick=addCategory;
   $("#addBrandBtn").onclick=addBrand;
   // delegação
-  $("#tab-produtos").addEventListener("click",e=>{ const ed=e.target.closest("[data-edit]"),dl=e.target.closest("[data-del]"); if(ed)openForm(+ed.dataset.edit); if(dl){ if(confirm("Excluir "+items[+dl.dataset.del].n+"?")){items.splice(+dl.dataset.del,1);save();renderProducts();toast("Produto excluído");} } });
+  $("#tab-produtos").addEventListener("click",e=>{
+    const ed=e.target.closest("[data-edit]");
+    if(ed) openForm(+ed.dataset.edit);
+  });
   $("#tab-categorias").addEventListener("click",e=>{ const up=e.target.closest("[data-cup]"),dn=e.target.closest("[data-cdn]"),rn=e.target.closest("[data-cren]"),ac=e.target.closest("[data-cact]"),dl=e.target.closest("[data-cdel]"); if(up&&!up.disabled)moveCat(+up.dataset.cup,-1); else if(dn&&!dn.disabled)moveCat(+dn.dataset.cdn,1); else if(rn)renameCat(rn.dataset.cren); else if(ac)toggleCatActive(ac.dataset.cact); else if(dl&&!dl.disabled)delCat(dl.dataset.cdel); });
   $("#newCatName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCategory(); } });
   $("#newBrandName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addBrand(); } });

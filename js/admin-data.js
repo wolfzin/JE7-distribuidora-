@@ -10,7 +10,7 @@
 
 // colunas mínimas p/ exibição do admin — repare: SEM retail_price
 const ADMIN_PROD_SEL =
-  "id,legacy_id,name,volume,category_id,brand_id,wholesale_price,promotion_price," +
+  "id,legacy_id,name,volume,category_id,brand_id,retail_price,wholesale_price,promotion_price," +
   "is_promotion,is_featured,is_new,is_best_seller,active," +
   "brands(name),categories(name)";
 
@@ -26,7 +26,8 @@ function adaptAdminRow(row){
     c: row.categories ? row.categories.name : "", // nome da categoria (via JOIN)
     category_id: row.category_id,                 // UUID interno
     brand_id: row.brand_id,                       // UUID interno
-    au: row.wholesale_price == null ? null : +row.wholesale_price,  // ATACADO = preço do admin
+    vu: row.retail_price == null ? null : +row.retail_price,
+    au: row.wholesale_price == null ? null : +row.wholesale_price,
     pp: row.promotion_price == null ? null : +row.promotion_price,
     promo: !!row.is_promotion,
     f:  !!row.is_featured,
@@ -48,6 +49,24 @@ async function adminLoadProducts(){
     .order("name", { ascending: true });
   if(error) throw error;
   return (data || []).map(adaptAdminRow);
+}
+
+/* Escrita autenticada de produtos.
+   Não existe DELETE de products por policy/RLS: produto é desativado via active=false. */
+async function adminCreateProduct(payload){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("products").insert(payload).select(ADMIN_PROD_SEL).single();
+  if(error) throw error;
+  return adaptAdminRow(data);
+}
+
+async function adminUpdateProduct(id, patch){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("products").update(patch).eq("id", id).select(ADMIN_PROD_SEL);
+  if(error) throw error;
+  return (data && data.length) ? adaptAdminRow(data[0]) : null;
 }
 
 /* ============================================================
