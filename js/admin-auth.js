@@ -24,10 +24,12 @@
   function showApp(email){
     document.body.classList.remove("locked");
     if(whoami) whoami.textContent = email || "";
+    if(typeof window.onAdminAuthed === "function") window.onAdminAuthed(email);
   }
   function showLogin(){
     document.body.classList.add("locked");
     if(whoami) whoami.textContent = "";
+    if(typeof window.onAdminLoggedOut === "function") window.onAdminLoggedOut();
   }
   function err(msg){
     if(!errBox) return;

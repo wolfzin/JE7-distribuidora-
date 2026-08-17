@@ -8,6 +8,31 @@ const LS={p:"je7_admin_products",c:"je7_admin_cats",o:"je7_admin_order"};
 const DEFAULT_IC='<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 7l3-4h12l3 4"/>';
 let items, cats, order, tab="produtos", editIdx=null;
 
+/* ---------- LEITURA DE PRODUTOS (Supabase) ---------- */
+/* items agora vem de public.products (via admin-data.js), não mais do data.js. */
+let prodState="init";     // init | loading | ready | error
+let prodError=null, prodLoading=false, prodSeq=0;
+async function refreshProducts(force){
+  if(prodLoading) return;
+  if(prodState==="ready" && !force) return;
+  prodLoading=true; prodState="loading"; prodError=null;
+  if(tab==="produtos") renderProducts();
+  const seq=++prodSeq;
+  try{
+    const rows=await adminLoadProducts();        // admin-data.js
+    if(seq!==prodSeq) return;
+    items=rows; prodState="ready";
+  }catch(e){
+    if(seq!==prodSeq) return;
+    console.error("Admin: falha ao carregar produtos do Supabase:", e);
+    prodError=e; items=[]; prodState="error";
+  }finally{ prodLoading=false; }
+  if(tab==="produtos") renderProducts();
+}
+/* ganchos chamados por admin-auth.js */
+window.onAdminAuthed=()=>{ refreshProducts(); };
+window.onAdminLoggedOut=()=>{ prodState="init"; items=[]; };
+
 function shade(hex,p){ const h=hex.replace("#",""); const n=parseInt(h.length===3?h.replace(/(.)/g,"$1$1"):h,16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.round(r+(p<0?r*p:(255-r)*p)); g=Math.round(g+(p<0?g*p:(255-g)*p)); b=Math.round(b+(p<0?b*p:(255-b)*p)); return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 const slug=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 const money=n=>"R$ "+(+n||0).toFixed(2).replace(".",",");
@@ -15,14 +40,13 @@ const $=s=>document.querySelector(s);
 
 /* ---------- persistência ---------- */
 function load(){
-  try{items=JSON.parse(localStorage.getItem(LS.p))}catch(e){items=null}
-  if(!items) items=JSON.parse(JSON.stringify(PRODUCTS));
+  // PRODUTOS: agora vêm do Supabase (ver refreshProducts). data.js segue só como
+  // fallback de categorias/marcas (migração dessas tabelas é etapa futura).
+  items=[];
   try{cats=JSON.parse(localStorage.getItem(LS.c))}catch(e){cats=null}
   if(!cats) cats=JSON.parse(JSON.stringify(CATS));
   try{order=JSON.parse(localStorage.getItem(LS.o))}catch(e){order=null}
   if(!order) order=JSON.parse(JSON.stringify(CAT_ORDER));
-  // limpa campos de runtime que possam ter vindo
-  items.forEach(p=>{delete p.id;delete p.k;delete p.slug;});
 }
 function save(){ localStorage.setItem(LS.p,JSON.stringify(items)); localStorage.setItem(LS.c,JSON.stringify(cats)); localStorage.setItem(LS.o,JSON.stringify(order)); markDirty(); }
 function restore(){ if(!confirm("Descartar todas as alterações e voltar ao data.js original?"))return; localStorage.removeItem(LS.p);localStorage.removeItem(LS.c);localStorage.removeItem(LS.o); load(); renderAll(); toast("Restaurado do arquivo original"); }
@@ -44,23 +68,34 @@ function renderAll(){ if(tab==="produtos")renderProducts(); else if(tab==="categ
 
 /* ============================================================ PRODUTOS */
 function renderProducts(){
+  const tbody=$("#prodTable"), cnt=$("#prodCount");
+  if(prodState==="init"||prodState==="loading"){
+    if(cnt) cnt.textContent="Carregando…";
+    if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">Carregando produtos do servidor…</td></tr>`;
+    return;
+  }
+  if(prodState==="error"){
+    if(cnt) cnt.textContent="";
+    if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">Não foi possível carregar os produtos do servidor.<br><button class="btn" id="prodRetry" style="margin-top:.7rem">Tentar novamente</button></td></tr>`;
+    const r=$("#prodRetry"); if(r) r.onclick=()=>refreshProducts(true);
+    return;
+  }
   const q=($("#prodSearch").value||"").toLowerCase();
-  const rows=items.map((p,i)=>({p,i})).filter(({p})=>!q||(p.n+" "+p.b+" "+p.c).toLowerCase().includes(q));
-  $("#prodCount").textContent=items.length+" produtos";
+  const rows=items.map((p,i)=>({p,i})).filter(({p})=>!q||(p.n+" "+p.b+" "+p.c+" "+(p.legacy_id||"")).toLowerCase().includes(q));
+  if(cnt) cnt.textContent=items.length+" produtos"+(q?` · ${rows.length} no filtro`:"");
   $("#prodTable").innerHTML=rows.map(({p,i})=>`
-    <tr>
+    <tr${p.active?"":' style="opacity:.55"'}>
       <td>${thumb(p)}</td>
-      <td><b>${p.n}</b><div class="sub">${p.v}</div></td>
-      <td>${p.b}</td>
-      <td><span class="pill">${p.c}</span></td>
-      <td>${money(p.vu)}</td>
-      <td>${money(p.au)}</td>
-      <td class="flags">${p.f?'<span class="fl f">D</span>':''}${p.bs?'<span class="fl b">V</span>':''}${p.nv?'<span class="fl n">N</span>':''}${p.promo?'<span class="fl p">%</span>':''}</td>
+      <td><b>${p.n}</b><div class="sub">${p.v||""}${p.legacy_id?` · cód. ${p.legacy_id}`:""}</div></td>
+      <td>${p.b||"—"}</td>
+      <td><span class="pill">${p.c||"—"}</span></td>
+      <td>${p.au==null?"—":money(p.au)}</td>
+      <td class="flags">${p.active?"":'<span class="pill" style="background:#f3d6d6;color:#a33">Inativo</span> '}${p.f?'<span class="fl f">D</span>':''}${p.bs?'<span class="fl b">V</span>':''}${p.nv?'<span class="fl n">N</span>':''}${p.promo?'<span class="fl p">%</span>':''}</td>
       <td class="acts">
-        <button class="ic" data-edit="${i}" title="Editar"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
+        <button class="ic" data-edit="${i}" title="Ver / editar"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
         <button class="ic danger" data-del="${i}" title="Excluir"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
       </td>
-    </tr>`).join("") || `<tr><td colspan="8" class="empty">Nenhum produto.</td></tr>`;
+    </tr>`).join("") || `<tr><td colspan="7" class="empty">${q?"Nenhum produto para essa busca.":"Nenhum produto."}</td></tr>`;
 }
 function openForm(i){
   editIdx = (i===null||i===undefined)?null:i;
