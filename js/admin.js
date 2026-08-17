@@ -30,8 +30,8 @@ async function refreshProducts(force){
   if(tab==="produtos") renderProducts();
 }
 /* ganchos chamados por admin-auth.js */
-window.onAdminAuthed=()=>{ refreshProducts(); if(tab==="categorias") refreshCategories(true); };
-window.onAdminLoggedOut=()=>{ prodState="init"; items=[]; catState="init"; catItems=[]; catCounts={}; };
+window.onAdminAuthed=()=>{ refreshProducts(); if(tab==="categorias") refreshCategories(true); if(tab==="marcas") refreshBrands(true); };
+window.onAdminLoggedOut=()=>{ prodState="init"; items=[]; catState="init"; catItems=[]; catCounts={}; brandState="init"; brandItems=[]; };
 
 /* ---------- CATEGORIAS (Supabase) ---------- */
 let catState="init", catError=null, catLoading=false, catSeq=0, catItems=[], catCounts={};
@@ -67,8 +67,8 @@ const $=s=>document.querySelector(s);
 
 /* ---------- persistência ---------- */
 function load(){
-  // PRODUTOS: agora vêm do Supabase (ver refreshProducts). data.js segue só como
-  // fallback de categorias/marcas (migração dessas tabelas é etapa futura).
+  // PRODUTOS: agora vêm do Supabase (ver refreshProducts). Categorias e
+  // marcas também são carregadas do Supabase nas respectivas abas.
   items=[];
   try{cats=JSON.parse(localStorage.getItem(LS.c))}catch(e){cats=null}
   if(!cats) cats=JSON.parse(JSON.stringify(CATS));
@@ -90,7 +90,7 @@ function thumb(p){
 }
 
 /* ============================================================ TABS */
-function switchTab(t){ tab=t; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("show",p.id==="tab-"+t)); renderAll(); if(t==="categorias") refreshCategories(); }
+function switchTab(t){ tab=t; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("show",p.id==="tab-"+t)); renderAll(); if(t==="categorias") refreshCategories(); if(t==="marcas") refreshBrands(); }
 function renderAll(){ if(tab==="produtos")renderProducts(); else if(tab==="categorias")renderCats(); else renderBrands(); }
 
 /* ============================================================ PRODUTOS */
@@ -277,18 +277,118 @@ async function delCat(id){
   }catch(e){ console.error(e); toast(friendlyWrite(e,"excluir categoria")); }
 }
 
-/* ============================================================ MARCAS */
-function renderBrands(){
-  const counts={}; items.forEach(p=>counts[p.b]=(counts[p.b]||0)+1);
-  const bs=Object.keys(counts).sort();
-  $("#brandList").innerHTML=bs.map(b=>`
-    <div class="catrow">
-      <span class="swatch" style="background:#f0f0f0;color:#666;display:grid;place-items:center;font-weight:800;font-size:.7rem">${b.slice(0,3).toUpperCase()}</span>
-      <div class="catinfo"><b>${b}</b><div class="sub">${counts[b]} produto(s)</div></div>
-      <div class="acts"><button class="ic" data-bren="${b}" title="Renomear"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button></div>
-    </div>`).join("");
+/* ============================================================ MARCAS (Supabase) */
+let brandState="init", brandError=null, brandLoading=false, brandSeq=0, brandItems=[];
+
+function brandSwatch(name){
+  const raw=(name||"").trim();
+  if(typeof BRAND_COLORS!=="undefined"){
+    const exact=BRAND_COLORS[raw];
+    if(exact) return exact;
+    const key=Object.keys(BRAND_COLORS).find(k=>k.toLowerCase()===raw.toLowerCase());
+    if(key) return BRAND_COLORS[key];
+  }
+  return "#f0f0f0";
 }
-function renameBrand(old){ const nn=prompt("Novo nome da marca (aplica a todos os produtos):",old); if(!nn||nn===old)return; items.forEach(p=>{if(p.b===old)p.b=nn;}); save(); renderBrands(); toast("Marca renomeada"); }
+
+async function refreshBrands(force){
+  if(brandLoading) return;
+  if(brandState==="ready" && !force) return;
+  brandLoading=true; brandState="loading"; brandError=null;
+  if(tab==="marcas") renderBrands();
+  const seq=++brandSeq;
+  try{
+    const rows=await adminLoadBrands();
+    if(seq!==brandSeq) return;
+    brandItems=rows;
+    brandState="ready";
+    const dl=$("#brandsDL");
+    if(dl) dl.innerHTML=brandItems.map(b=>`<option value="${b.name}">`).join("");
+  }catch(e){
+    if(seq!==brandSeq) return;
+    console.error("Admin: falha ao carregar marcas do Supabase:", e);
+    brandError=e; brandItems=[]; brandState="error";
+  }finally{ brandLoading=false; }
+  if(tab==="marcas") renderBrands();
+}
+
+function brandProductCounts(){
+  const counts={};
+  items.forEach(p=>{
+    if(p.brand_id) counts[p.brand_id]=(counts[p.brand_id]||0)+1;
+  });
+  return counts;
+}
+
+function renderBrands(){
+  const host=$("#brandList"); if(!host) return;
+  if(brandState==="init"||brandState==="loading"){
+    host.innerHTML=`<div class="empty" style="padding:1.2rem">Carregando marcas…</div>`;
+    return;
+  }
+  if(brandState==="error"){
+    host.innerHTML=`<div class="empty" style="padding:1.2rem">Não foi possível carregar as marcas do servidor.<br><button class="btn" id="brandRetry" style="margin-top:.7rem">Tentar novamente</button></div>`;
+    const r=$("#brandRetry"); if(r) r.onclick=()=>refreshBrands(true);
+    return;
+  }
+  if(!brandItems.length){
+    host.innerHTML=`<div class="empty" style="padding:1.2rem">Nenhuma marca cadastrada.</div>`;
+    return;
+  }
+  const counts=brandProductCounts();
+  host.innerHTML=brandItems.map(b=>{
+    const count=counts[b.id]||0;
+    return `<div class="catrow"${b.active?"":' style="opacity:.55"'}>
+      <span class="swatch" style="background:${brandSwatch(b.name)};display:grid;place-items:center;font-weight:800;font-size:.7rem;color:#fff;text-shadow:0 1px 2px #0006">${(b.name||"?").slice(0,3).toUpperCase()}</span>
+      <div class="catinfo"><b>${b.name}</b>${b.active?"":' <span class="pill" style="background:#f3d6d6;color:#a33">Inativa</span>'}<div class="sub">${count} produto(s)</div></div>
+      <div class="acts">
+        <button class="ic" data-bren="${b.id}" title="Renomear"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
+        <button class="ic" data-bact="${b.id}" title="${b.active?"Desativar":"Ativar"}">${b.active?ICO_OFF:ICO_ON}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function addBrand(){
+  const name=($("#newBrandName").value||"").trim();
+  if(!name){ toast("Digite o nome da marca"); return; }
+  if(brandItems.some(b=>(b.name||"").toLowerCase()===name.toLowerCase())){ toast("Marca já existe"); return; }
+  const btn=$("#addBrandBtn"); if(btn) btn.disabled=true;
+  try{
+    await adminCreateBrand({name, active:true});
+    $("#newBrandName").value="";
+    await refreshBrands(true);
+    toast("Marca adicionada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"adicionar marca")); }
+  finally{ if(btn) btn.disabled=false; }
+}
+
+async function renameBrand(id){
+  const b=brandItems.find(x=>x.id===id); if(!b) return;
+  const nn=prompt("Novo nome da marca:", b.name);
+  if(nn===null) return;
+  const name=nn.trim(); if(!name||name===b.name) return;
+  if(brandItems.some(x=>x.id!==id && (x.name||"").toLowerCase()===name.toLowerCase())){ toast("Já existe marca com esse nome"); return; }
+  try{
+    const r=await adminUpdateBrand(id,{name});
+    if(!r){ toast("Não foi possível renomear a marca"); return; }
+    await refreshBrands(true);
+    /* produtos já são JOINados pelo nome no próximo refresh; atualiza agora */
+    await refreshProducts(true);
+    $("#brandsDL").innerHTML=brandItems.map(x=>`<option value="${x.name}">`).join("");
+    toast("Marca renomeada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"renomear marca")); }
+}
+
+async function toggleBrandActive(id){
+  const b=brandItems.find(x=>x.id===id); if(!b) return;
+  try{
+    const r=await adminUpdateBrand(id,{active:!b.active});
+    if(!r){ toast("Não foi possível alterar o status"); return; }
+    await refreshBrands(true);
+    toast(b.active?"Marca desativada":"Marca ativada");
+  }catch(e){ console.error(e); toast(friendlyWrite(e,"alterar status")); }
+}
 
 /* ============================================================ EXPORT data.js */
 function serP(p){
@@ -325,11 +425,13 @@ function init(){
   $("#exportBtn").onclick=exportDataJs;
   $("#restoreBtn").onclick=restore;
   $("#addCatBtn").onclick=addCategory;
+  $("#addBrandBtn").onclick=addBrand;
   // delegação
   $("#tab-produtos").addEventListener("click",e=>{ const ed=e.target.closest("[data-edit]"),dl=e.target.closest("[data-del]"); if(ed)openForm(+ed.dataset.edit); if(dl){ if(confirm("Excluir "+items[+dl.dataset.del].n+"?")){items.splice(+dl.dataset.del,1);save();renderProducts();toast("Produto excluído");} } });
   $("#tab-categorias").addEventListener("click",e=>{ const up=e.target.closest("[data-cup]"),dn=e.target.closest("[data-cdn]"),rn=e.target.closest("[data-cren]"),ac=e.target.closest("[data-cact]"),dl=e.target.closest("[data-cdel]"); if(up&&!up.disabled)moveCat(+up.dataset.cup,-1); else if(dn&&!dn.disabled)moveCat(+dn.dataset.cdn,1); else if(rn)renameCat(rn.dataset.cren); else if(ac)toggleCatActive(ac.dataset.cact); else if(dl&&!dl.disabled)delCat(dl.dataset.cdel); });
   $("#newCatName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCategory(); } });
-  $("#tab-marcas").addEventListener("click",e=>{ const rn=e.target.closest("[data-bren]"); if(rn)renameBrand(rn.dataset.bren); });
+  $("#newBrandName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addBrand(); } });
+  $("#tab-marcas").addEventListener("click",e=>{ const rn=e.target.closest("[data-bren]"),ac=e.target.closest("[data-bact]"); if(rn)renameBrand(rn.dataset.bren); else if(ac)toggleBrandActive(ac.dataset.bact); });
   $("#brandsDL").innerHTML=brandList().map(b=>`<option value="${b}">`).join("");
   switchTab("produtos");
 }

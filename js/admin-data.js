@@ -104,3 +104,38 @@ async function adminDeleteCategory(id){
   const n = (data || []).length;
   return { ok: n>0, blocked: n===0, error:null };
 }
+
+
+/* ============================================================
+   ADMIN — MARCAS (leitura + escrita autenticada)
+   Etapa Marcas. Gerencia somente name e active.
+   Não há DELETE de marcas nesta etapa.
+   ============================================================ */
+const ADMIN_BRAND_SEL = "id,name,active";
+
+async function adminLoadBrands(){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível (verifique login).");
+  const { data, error } = await sb
+    .from("brands")
+    .select(ADMIN_BRAND_SEL)
+    .order("name", { ascending: true });
+  if(error) throw error;
+  return data || [];
+}
+
+async function adminCreateBrand(payload){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("brands").insert(payload).select().single();
+  if(error) throw error;
+  return data;
+}
+
+async function adminUpdateBrand(id, patch){
+  const sb = window.sbAdmin;
+  if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const { data, error } = await sb.from("brands").update(patch).eq("id", id).select();
+  if(error) throw error;
+  return (data && data.length) ? data[0] : null;
+}
