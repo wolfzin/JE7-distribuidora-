@@ -44,7 +44,7 @@ window.__svgArt = id => { const p=byId[id]; return p?svgArt(p):""; };
    STATE + HELPERS (dados via Supabase)
    ============================================================ */
 let state = { catId:"", brandId:"", price:"", q:"", special:"", sort:"rel", page:0, total:0,
-              cart:{}, favs:new Set(), buyMode:"varejo",
+              cart:{}, favs:new Set(), buyMode:"atacado",
               _cli:"", _fone:"", _empresa:"", _cnpj:"", _obs:"", orderNo:"", orderDate:"" };
 const PER = CONFIG.perPage || 24;
 let byId = {};            // cache id -> produto adaptado
@@ -67,8 +67,31 @@ const CAT_DESC = {
 };
 function descOf(p){ return (CAT_DESC[p.c]||"Produto")+" — "+p.b+" "+p.n+" ("+p.v+")."; }
 function availOf(p){ return {t:"Em estoque",cls:"avail-ok"}; }
-function effPrice(p){ return p.promo && p.pp!=null ? p.pp : p.vu; }
-function unitPrice(p){ return state.buyMode==="atacado" ? p.au : (p.promo && p.pp!=null ? p.pp : p.vu); }
+/* ===== PREÇOS — catálogo só-atacado. SHOW_RETAIL=true reexibe o varejo (reversível). ===== */
+const SHOW_RETAIL = false;
+function atacUnit(p){ return p.promo && p.pp!=null ? p.pp : p.au; }   // atacado efetivo (null se sem preço)
+function retailUnit(p){ return p.promo && p.pp!=null ? p.pp : p.vu; } // varejo (oculto por ora)
+function hasPrice(p){ return atacUnit(p)!=null; }
+function priceTxt(v){ return v==null ? "Sob consulta" : money(v); }
+function effPrice(p){ return atacUnit(p); }
+function unitPrice(p){ return (SHOW_RETAIL && state.buyMode==="varejo") ? retailUnit(p) : atacUnit(p); }
+function priceBlocks(p){
+  const promoOn = p.promo && p.pp!=null;
+  const atacMain = promoOn ? (p.au!=null?"<s>"+money(p.au)+"</s>":"")+money(p.pp) : priceTxt(p.au);
+  const atacCls = "pr-block"+(SHOW_RETAIL?" atac":"")+(promoOn?" promo":"");
+  const atac = `<div class="${atacCls}"><small>${promoOn?"Oferta atacado":"Atacado"}</small><div class="v">${atacMain}</div><div class="u">por unidade</div></div>`;
+  if(!SHOW_RETAIL) return atac;
+  const retMain = promoOn ? "<s>"+money(p.vu)+"</s>"+money(p.pp) : money(p.vu);
+  return `<div class="pr-block${promoOn?" promo":""}"><small>${promoOn?"Oferta":"Varejo"}</small><div class="v">${retMain}</div><div class="u">unidade</div></div>`+atac;
+}
+function modalPrices(p){
+  const promoOn = p.promo && p.pp!=null;
+  const atacVal = promoOn ? '<span class="val">'+(p.au!=null?"<s>"+money(p.au)+"</s>":"")+money(p.pp)+'</span>' : '<span class="val">'+priceTxt(p.au)+'</span>';
+  const atacBox = `<div class="pm-price-box hl"><small>${promoOn?"Oferta atacado (un)":"Preço de atacado (un)"}</small>${atacVal}</div>`;
+  if(!SHOW_RETAIL) return atacBox;
+  const retVal = promoOn ? '<span class="val"><s>'+money(p.vu)+'</s>'+money(p.pp)+'</span>' : '<span class="val">'+money(p.vu)+'</span>';
+  return `<div class="pm-price-box hl"><small>${promoOn?"Oferta varejo (un)":"Varejo (un)"}</small>${retVal}</div><div class="pm-price-box"><small>Atacado (un)</small><span class="val">${money(p.au)}</span></div>`;
+}
 const SPECIAL_TITLES = {bs:"Mais procurados",nv:"Novidades",promo:"Ofertas",f:"Destaques",fav:"Seus favoritos"};
 function catName(id){ const c=cats.find(x=>x.id===id); return c?c.name:""; }
 function brandName(id){ const b=brands.find(x=>x.id===id); return b?b.name:""; }
@@ -97,8 +120,7 @@ function card(p){
       <div class="card-brand">${p.b}</div>
       <div class="card-name">${p.n}</div>
       <div class="pr-blocks">
-        <div class="pr-block${p.promo?" promo":""}"><small>${p.promo?"Oferta":"Varejo"}</small><div class="v">${p.promo&&p.pp!=null?"<s>"+money(p.vu)+"</s>"+money(p.pp):money(p.vu)}</div><div class="u">unidade</div></div>
-        <div class="pr-block atac"><small>Atacado</small><div class="v">${money(p.au)}</div><div class="u">por unidade</div></div>
+        ${priceBlocks(p)}
       </div>
       <div class="card-actions">
         <div class="qty">
@@ -268,7 +290,7 @@ function addToCart(id,qty,srcEl){
 }
 function setQty(id,q){ if(q<=0) delete state.cart[id]; else if(state.cart[id]) state.cart[id].q=q; else if(byId[id]) state.cart[id]={p:byId[id],q}; updateCartUI(); }
 function clearCart(){ state.cart={}; updateCartUI(); toast("Pedido limpo"); }
-function cartTotals(){ let qty=0,val=0; Object.values(state.cart).forEach(({p,q})=>{qty+=q; val+=q*unitPrice(p);}); return {qty,val,lines:Object.keys(state.cart).length}; }
+function cartTotals(){ let qty=0,val=0; Object.values(state.cart).forEach(({p,q})=>{qty+=q; const u=unitPrice(p); val+=q*(u==null?0:u);}); return {qty,val,lines:Object.keys(state.cart).length}; }
 function updateCartUI(){
   const t=cartTotals();
   $("#navCount").textContent=t.qty; $("#drawerCount").textContent=t.qty; $("#navCount").classList.toggle("on",t.qty>0);
@@ -291,19 +313,19 @@ function flyToCart(srcEl){
 function bumpCart(){ ["#navCount","#fab"].forEach(s=>{const el=$(s); if(!el)return; el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");}); }
 function emptyCart(){ return `<div class="cart-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="9" cy="21" r="1.5"/><circle cx="18" cy="21" r="1.5"/><path d="M2.5 3h2l2.2 12.4a1.5 1.5 0 0 0 1.5 1.2h9.1a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg><h3>Seu pedido está vazio</h3><p>Adicione produtos do catálogo para começar.</p></div>`; }
 function renderDrawer(){
-  const body=$("#drawerBody"); const entries=Object.entries(state.cart); const atac=state.buyMode==="atacado";
+  const body=$("#drawerBody"); const entries=Object.entries(state.cart); const atac=SHOW_RETAIL?state.buyMode==="atacado":true;
   const head=`<div class="quote-head"><div class="qh-top"><span class="qh-badge">Orçamento</span><span class="qh-no">${state.orderNo}</span></div><div class="qh-date">Data: ${state.orderDate}</div></div>
-    <div class="buy-mode"><div class="bm-label">Como deseja comprar?</div>
+    ${SHOW_RETAIL?`<div class="buy-mode"><div class="bm-label">Como deseja comprar?</div>
       <div class="bm-opts"><button class="bm-opt ${!atac?"active":""}" data-mode="varejo"><span class="bm-dot"></span>Varejo</button><button class="bm-opt ${atac?"active":""}" data-mode="atacado"><span class="bm-dot"></span>Atacado</button></div>
       <p class="bm-hint">${atac?"Preços de atacado aplicados. Preencha os dados para o orçamento.":"Preços de varejo aplicados."}</p>
-    </div>
+    </div>`:`<p class="bm-hint" style="margin:.2rem 0 1rem">Preços de atacado. Preencha os dados para o orçamento.</p>`}
     <div class="quote-fields">
       <input id="cliName" placeholder="Nome${atac?"":" (opcional)"}" value="${state._cli||""}" autocomplete="name">
       <input id="cliPhone" placeholder="Telefone / WhatsApp" value="${state._fone||""}" autocomplete="tel">
       ${atac?`<input id="cliEmp" placeholder="Empresa" value="${state._empresa||""}" autocomplete="organization"><input id="cliCnpj" placeholder="CNPJ" value="${state._cnpj||""}">`:""}
     </div>`;
   if(!entries.length){ body.innerHTML=head+emptyCart(); wireQuoteFields(); return; }
-  const items=entries.map(([id,{p,q}])=>`<div class="cart-item"><div class="thumb" style="background:linear-gradient(145deg,${catStyle(p.c).tile[0]},${catStyle(p.c).tile[1]})">${p.n.slice(0,2).toUpperCase()}</div><div class="ci-body"><div class="ci-name">${p.n}</div><div class="ci-meta">${p.v} · ${money(unitPrice(p))}/un ${state.buyMode}</div><div class="ci-row"><div class="qty"><button data-deci="${id}">−</button><span>${q}</span><button data-inci="${id}">+</button></div><div style="display:flex;align-items:center;gap:.7rem"><span class="ci-price">${money(q*unitPrice(p))}</span><button class="ci-remove" data-rmi="${id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg></button></div></div></div></div>`).join("");
+  const items=entries.map(([id,{p,q}])=>`<div class="cart-item"><div class="thumb" style="background:linear-gradient(145deg,${catStyle(p.c).tile[0]},${catStyle(p.c).tile[1]})">${p.n.slice(0,2).toUpperCase()}</div><div class="ci-body"><div class="ci-name">${p.n}</div><div class="ci-meta">${p.v} · ${priceTxt(unitPrice(p))}/un</div><div class="ci-row"><div class="qty"><button data-deci="${id}">−</button><span>${q}</span><button data-inci="${id}">+</button></div><div style="display:flex;align-items:center;gap:.7rem"><span class="ci-price">${priceTxt(unitPrice(p)==null?null:q*unitPrice(p))}</span><button class="ci-remove" data-rmi="${id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg></button></div></div></div></div>`).join("");
   const obs=`<div class="obs"><label for="obsField">Observações do pedido</label><textarea id="obsField" placeholder="Ex: entrega no bairro X, pagar no PIX…">${state._obs||""}</textarea></div>`;
   body.innerHTML=head+items+obs; wireQuoteFields();
 }
@@ -312,7 +334,7 @@ function wireQuoteFields(){
   set("#cliName","_cli"); set("#cliPhone","_fone"); set("#cliEmp","_empresa"); set("#cliCnpj","_cnpj"); set("#obsField","_obs");
 }
 function buildMessage(){
-  const t=cartTotals(); const atac=state.buyMode==="atacado";
+  const t=cartTotals(); const atac=SHOW_RETAIL?state.buyMode==="atacado":true;
   let m="*PEDIDO DE ORÇAMENTO*\n*"+CONFIG.storeName+"*\n\n";
   m+="*Tipo de compra:* "+(atac?"Atacado":"Varejo")+"\n";
   if(state._cli && state._cli.trim()) m+="*Nome:* "+state._cli.trim()+"\n";
@@ -320,7 +342,7 @@ function buildMessage(){
   if(state._fone && state._fone.trim()) m+="*Telefone:* "+state._fone.trim()+"\n";
   if(atac && state._cnpj && state._cnpj.trim()) m+="*CNPJ:* "+state._cnpj.trim()+"\n";
   m+="\n--------------------------------\n*PRODUTOS*\n--------------------------------\n";
-  Object.values(state.cart).forEach(({p,q})=>{ m+="\n• "+p.n+" ("+p.v+")\n   Qtd: "+q+"  —  "+money(q*unitPrice(p))+"\n"; });
+  Object.values(state.cart).forEach(({p,q})=>{ m+="\n• "+p.n+" ("+p.v+")\n   Qtd: "+q+"  —  "+priceTxt(unitPrice(p)==null?null:q*unitPrice(p))+"\n"; });
   m+="\n--------------------------------\n";
   m+="*Itens:* "+t.qty+"    *Produtos:* "+t.lines+"\n";
   m+="*Valor estimado ("+state.buyMode+"):* "+money(t.val)+"\n";
@@ -336,7 +358,6 @@ function relCard(p){ return `<div class="rel-card" data-open="${p.id}"><div clas
 function relatedBlock(title,items){ if(!items.length) return ""; return `<div class="pm-related"><h4>${title}</h4><div class="rel-row">${items.map(relCard).join("")}</div></div>`; }
 function modalHTML(p){
   const c=catStyle(p.c), av=availOf(p);
-  const priceVarejo = (p.promo&&p.pp!=null) ? '<span class="val"><s>'+money(p.vu)+'</s>'+money(p.pp)+'</span>' : '<span class="val">'+money(p.vu)+'</span>';
   return `
   <button class="pm-close" id="pmClose" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   <div class="pm-scroll">
@@ -353,8 +374,7 @@ function modalHTML(p){
         </div>
         <p class="pm-desc">${descOf(p)}</p>
         <div class="pm-prices">
-          <div class="pm-price-box hl"><small>${p.promo?"Oferta varejo (un)":"Varejo (un)"}</small>${priceVarejo}</div>
-          <div class="pm-price-box"><small>Atacado (un)</small><span class="val">${money(p.au)}</span></div>
+          ${modalPrices(p)}
         </div>
         <div class="pm-buy">
           <div class="qty"><button id="pmDec">−</button><span id="pmQty">1</span><button id="pmInc">+</button></div>

@@ -30,7 +30,7 @@ function adapt(row){
     c: row.categories ? row.categories.name : "",
     catId: row.category_id, brandId: row.brand_id,
     vu: +row.retail_price || 0,
-    au: +row.wholesale_price || 0,
+    au: row.wholesale_price==null ? null : +row.wholesale_price,
     promo: !!row.is_promotion,
     pp: row.promotion_price!=null ? +row.promotion_price : null,
     f: !!row.is_featured, nv: !!row.is_new, bs: !!row.is_best_seller,
@@ -56,8 +56,8 @@ async function resolveSearch(q){
   return { brandIds:(b.data||[]).map(x=>x.id), catIds:(c.data||[]).map(x=>x.id) };
 }
 function applySort(query,sort){
-  if(sort==="asc") return query.order("retail_price",{ascending:true});
-  if(sort==="desc") return query.order("retail_price",{ascending:false});
+  if(sort==="asc") return query.order("wholesale_price",{ascending:true});
+  if(sort==="desc") return query.order("wholesale_price",{ascending:false});
   return query.order("is_best_seller",{ascending:false}).order("name",{ascending:true});
 }
 /* consulta principal paginada */
@@ -71,7 +71,7 @@ async function sbProducts(o){
   else if(o.special==="bs") query=query.eq("is_best_seller",true);
   else if(o.special==="nv") query=query.eq("is_new",true);
   else if(o.special==="f")  query=query.eq("is_featured",true);
-  if(o.price){ const [a,z]=o.price.split("-").map(Number); query=query.gte("retail_price",a).lte("retail_price",z); }
+  if(o.price){ const [a,z]=o.price.split("-").map(Number); query=query.gte("wholesale_price",a).lte("wholesale_price",z); }
   if(o.q){
     const {brandIds,catIds}=await resolveSearch(o.q);
     const ors=["name.ilike.%"+o.q+"%"];
