@@ -92,9 +92,34 @@ label input:focus,label select:focus{outline:none;border-color:var(--red)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:.7rem 1.2rem;border-radius:12px;font-size:.88rem;font-weight:600;opacity:0;pointer-events:none;transition:.25s var(--ease);z-index:80}
 #toast.show{opacity:1;transform:translateX(-50%)}
 @media(max-width:640px){ .f2{grid-template-columns:1fr} th.hide,td.hide{display:none} }
+/* ===== AUTENTICAÇÃO (gate de login) ===== */
+#authGate{display:none;position:fixed;inset:0;z-index:100;background:linear-gradient(135deg,#0b0b0c,#1a1a1e);place-items:center;padding:1.2rem}
+body.locked #authGate{display:grid}
+body.locked .top,body.locked .wrap{display:none!important}
+.auth-card{width:min(380px,94vw);background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:1.6rem 1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:.7rem}
+.auth-logo{font-family:Montserrat;font-weight:900;font-size:1.3rem;letter-spacing:-.02em}
+.auth-logo b{color:var(--red)}.auth-logo .u{border-bottom:3px solid var(--red);padding-bottom:1px}
+.auth-sub{font-size:.85rem;color:var(--muted);margin:.1rem 0 .4rem}
+.auth-field{display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;font-weight:600;color:var(--muted)}
+.auth-field input{padding:.6rem .75rem;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:.95rem;color:var(--text);background:var(--surface)}
+.auth-field input:focus{outline:none;border-color:var(--red)}
+.auth-error{background:rgba(210,40,40,.08);border:1px solid rgba(210,40,40,.35);color:#c0271b;font-size:.82rem;padding:.5rem .7rem;border-radius:9px}
+.auth-btn{justify-content:center;margin-top:.3rem;padding:.7rem}
+.auth-btn:disabled{opacity:.6;cursor:not-allowed}
+.who{color:#fff;font-size:.82rem;opacity:.85;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
-<body>
+<body class="locked">
+<div id="authGate">
+  <form class="auth-card" id="loginForm">
+    <div class="auth-logo"><b>JE7</b> <span class="u">Painel</span></div>
+    <p class="auth-sub">Acesso restrito. Entre para gerenciar o catálogo.</p>
+    <label class="auth-field">E-mail<input type="email" id="authEmail" autocomplete="username" placeholder="voce@empresa.com"></label>
+    <label class="auth-field">Senha<input type="password" id="authPass" autocomplete="current-password" placeholder="••••••••"></label>
+    <div class="auth-error" id="authError" style="display:none"></div>
+    <button type="submit" class="btn auth-btn" id="authBtn">Entrar</button>
+  </form>
+</div>
 <div class="top">
   <span class="logo"><b>JE7</b> <span class="u">Painel</span></span>
   <span id="dirtyDot" title="Alterações não exportadas"></span>
@@ -102,6 +127,8 @@ label input:focus,label select:focus{outline:none;border-color:var(--red)}
   <a class="btn ghost" href="index.html">Ver catálogo</a>
   <button class="btn ghost" id="restoreBtn">Restaurar</button>
   <button class="btn" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar data.js</button>
+  <span id="authUser" class="who"></span>
+  <button class="btn ghost" id="logoutBtn">Sair</button>
 </div>
 
 <div class="wrap">
@@ -149,7 +176,9 @@ label input:focus,label select:focus{outline:none;border-color:var(--red)}
 <div id="formRoot"></div>
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
+<script src="js/admin-auth.js"></script>
 <script src="js/data.js"></script>
 <script src="js/admin.js"></script>
 </body>
