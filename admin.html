@@ -27,7 +27,6 @@ svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 .top .btn.ghost{color:#fff;border-color:rgba(255,255,255,.25)}
 .btn.danger{background:transparent;color:#d33;border:1px solid rgba(210,40,40,.4)}
 .btn.ghost.danger{color:#d33}
-#dirtyDot{display:none;width:9px;height:9px;border-radius:99px;background:#ffcc00;box-shadow:0 0 0 3px rgba(255,204,0,.25)}
 /* wrap */
 .wrap{max-width:1080px;margin:0 auto;padding:1.4rem 1.2rem 4rem}
 .hero-note{background:linear-gradient(135deg,#fff,#fff);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:12px;padding:.8rem 1rem;font-size:.86rem;color:var(--muted);margin-bottom:1.3rem}
@@ -122,11 +121,8 @@ body.locked .top,body.locked .wrap{display:none!important}
 </div>
 <div class="top">
   <span class="logo"><b>JE7</b> <span class="u">Painel</span></span>
-  <span id="dirtyDot" title="Alterações não exportadas"></span>
   <span class="sep"></span>
   <a class="btn ghost" href="index.html">Ver catálogo</a>
-  <button class="btn ghost" id="restoreBtn">Restaurar</button>
-  <button class="btn" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar data.js</button>
   <span id="authUser" class="who"></span>
   <button class="btn ghost" id="logoutBtn">Sair</button>
 </div>
@@ -181,7 +177,7 @@ body.locked .top,body.locked .wrap{display:none!important}
 <script src="js/config.js"></script>
 <script src="js/admin-auth.js"></script>
 <script src="js/admin-data.js"></script>
-<script src="js/data.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>
