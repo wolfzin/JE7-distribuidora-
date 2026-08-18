@@ -3,8 +3,7 @@
    Autenticação e dados administrativos usam Supabase.
    O catálogo público permanece separado e preservado.
    ============================================================ */
-const LS={p:"je7_admin_products",c:"je7_admin_cats",o:"je7_admin_order"};
-let items, cats, order, tab="produtos", editIdx=null;
+let items, tab="produtos", editIdx=null;
 let formImageFile=null, formImageRemove=false, formCurrentImageId=null, formCurrentImagePath=null;
 
 /* ---------- LEITURA DE PRODUTOS (Supabase) ---------- */
@@ -59,28 +58,17 @@ function friendlyWrite(e, action){
   return "Erro ao "+action+".";
 }
 
-const slug=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 const money=n=>"R$ "+(+n||0).toFixed(2).replace(".",",");
 const $=s=>document.querySelector(s);
 
-/* ---------- persistência ---------- */
-function load(){
-  // PRODUTOS: agora vêm do Supabase (ver refreshProducts). Categorias e
-  // marcas também são carregadas do Supabase nas respectivas abas.
-  items=[];
-  try{cats=JSON.parse(localStorage.getItem(LS.c))}catch(e){cats=null}
-  if(!cats) cats=JSON.parse(JSON.stringify(CATS));
-  try{order=JSON.parse(localStorage.getItem(LS.o))}catch(e){order=null}
-  if(!order) order=JSON.parse(JSON.stringify(CAT_ORDER));
-}
-function restore(){ if(!confirm("Descartar todas as alterações e voltar ao data.js original?"))return; localStorage.removeItem(LS.p);localStorage.removeItem(LS.c);localStorage.removeItem(LS.o); load(); renderAll(); toast("Restaurado do arquivo original"); }
-let dirty=false;
+/* ---------- estado inicial (produtos/categorias/marcas vêm do Supabase) ---------- */
+function load(){ items=[]; }
 
 /* ---------- util UI ---------- */
 let tT; function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("show"),2200); }
 function thumb(p){
   if(p.img) return `<img class="th" src="${p.img}" alt="" onerror="this.outerHTML='<span class=&quot;th ph&quot;>${(p.n||'?').slice(0,2).toUpperCase()}</span>'">`;
-  const t=cats[p.c]?cats[p.c].tile:["#eee","#ddd"];
+  const t=["#eee","#ddd"];
   return `<span class="th ph" style="background:linear-gradient(135deg,${t[0]},${t[1]})">${(p.n||'?').slice(0,2).toUpperCase()}</span>`;
 }
 
@@ -528,40 +516,12 @@ async function toggleBrandActive(id){
   }catch(e){ console.error(e); toast(friendlyWrite(e,"alterar status")); }
 }
 
-/* ============================================================ EXPORT data.js */
-function serP(p){
-  const a=[]; const q=(k,v)=>a.push(k+":"+JSON.stringify(v)); const num=(k,v)=>a.push(k+":"+v);
-  q("n",p.n); q("c",p.c); q("b",p.b); q("v",p.v);
-  num("au",+p.au); num("ap",+p.ap); num("vp",+p.vp); num("vu",+p.vu); num("pk",+p.pk);
-  if(p.f)num("f",1); if(p.bs)num("bs",1); if(p.nv)num("nv",1);
-  if(p.promo){num("promo",1);num("pp",+p.pp);} if(p.av)q("av",p.av); if(p.img)q("img",p.img);
-  return "{"+a.join(",")+"}";
-}
-function serCats(){ return "{\n"+order.map(n=>"  "+JSON.stringify(n)+":{ic:"+JSON.stringify(cats[n].ic)+",tile:"+JSON.stringify(cats[n].tile)+",tileD:"+JSON.stringify(cats[n].tileD)+"}").join(",\n")+"\n}"; }
-function exportDataJs(){
-  let s="/* ============================================================\n";
-  s+="   DATA — JE7 (gerado pelo Painel Administrativo)\n";
-  s+="   n=nome · c=categoria · b=marca · v=volume\n";
-  s+="   au=atacado/un · ap=atacado/fardo · vp=varejo/fardo · vu=varejo/un · pk=un por fardo\n";
-  s+="   Flags: f=destaque · bs=mais vendido · nv=novidade · promo+pp=oferta · av=disponibilidade\n";
-  s+="   ============================================================ */\n";
-  s+="const PRODUCTS = [\n"+items.map(p=>"  "+serP(p)).join(",\n")+"\n];\n\n";
-  s+="const CATS = "+serCats()+";\n\n";
-  s+="const CAT_ORDER = "+JSON.stringify(order)+";\n";
-  const blob=new Blob([s],{type:"text/javascript"}); const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download="data.js"; a.click(); URL.revokeObjectURL(url);
-  dirty=false; $("#dirtyDot").style.display="none";
-  toast("data.js exportado — suba no servidor (pasta js/)");
-}
-
 /* ============================================================ INIT */
 function init(){
   load();
   document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
   $("#prodSearch").oninput=renderProducts;
   $("#newProdBtn").onclick=()=>openForm(null);
-  $("#exportBtn").onclick=exportDataJs;
-  $("#restoreBtn").onclick=restore;
   $("#addCatBtn").onclick=addCategory;
   $("#addBrandBtn").onclick=addBrand;
   // delegação
