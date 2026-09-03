@@ -11,8 +11,30 @@ const _sb = (_sbConfigured && window.supabase)
   : null;
 function sbReady(){ return !!_sb; }
 
+/* Client compartilhado do site público (o mesmo usado pelo login de clientes),
+   para que a sessão/JWT valha nas leituras protegidas (product_wholesale/RLS). */
+window.jeSb = _sb;
+
+/* ---- PREÇO DE ATACADO (protegido por RLS em public.product_wholesale) ----
+   Só retorna linhas para usuário atacado/admin; varejo/anônimo recebem vazio.
+   Ajuste WHOLESALE_TABLE/_FK/_COL se os nomes reais diferirem. */
+const WHOLESALE_TABLE = "product_wholesale";
+const WHOLESALE_FK    = "product_id";
+const WHOLESALE_COL   = "wholesale_price";
+async function sbWholesale(ids){
+  if(!_sb || !ids || !ids.length) return {};
+  try{
+    const { data, error } = await _sb.from(WHOLESALE_TABLE)
+      .select(WHOLESALE_FK+","+WHOLESALE_COL)
+      .in(WHOLESALE_FK, ids);
+    if(error) return {};                 // RLS bloqueia varejo/anon -> tratamos como sem preço
+    const m={}; (data||[]).forEach(r=>{ const v=r[WHOLESALE_COL]; m[r[WHOLESALE_FK]] = v==null?null:+v; });
+    return m;
+  }catch(e){ return {}; }
+}
+
 /* seleção com relacionamentos + imagens */
-const SB_SEL = "id,name,volume,category_id,brand_id,retail_price,wholesale_price,promotion_price,is_promotion,is_featured,is_new,is_best_seller,brands(name),categories(name),product_images(storage_path,is_primary,sort_order)";
+const SB_SEL = "id,name,volume,category_id,brand_id,retail_price,promotion_price,is_promotion,is_featured,is_new,is_best_seller,brands(name),categories(name),product_images(storage_path,is_primary,sort_order)";
 
 function imgPublicUrl(path){ if(!path||!_sb) return null; return _sb.storage.from(CONFIG.bucket).getPublicUrl(path).data.publicUrl; }
 function primaryImg(imgs){
@@ -30,7 +52,7 @@ function adapt(row){
     c: row.categories ? row.categories.name : "",
     catId: row.category_id, brandId: row.brand_id,
     vu: +row.retail_price || 0,
-    au: row.wholesale_price==null ? null : +row.wholesale_price,
+    au: null, // atacado vem de product_wholesale (só p/ atacadista) — mesclado depois
     promo: !!row.is_promotion,
     pp: row.promotion_price!=null ? +row.promotion_price : null,
     f: !!row.is_featured, nv: !!row.is_new, bs: !!row.is_best_seller,
@@ -56,8 +78,8 @@ async function resolveSearch(q){
   return { brandIds:(b.data||[]).map(x=>x.id), catIds:(c.data||[]).map(x=>x.id) };
 }
 function applySort(query,sort){
-  if(sort==="asc") return query.order("wholesale_price",{ascending:true});
-  if(sort==="desc") return query.order("wholesale_price",{ascending:false});
+  if(sort==="asc") return query.order("retail_price",{ascending:true});
+  if(sort==="desc") return query.order("retail_price",{ascending:false});
   return query.order("is_best_seller",{ascending:false}).order("name",{ascending:true});
 }
 /* consulta principal paginada */
@@ -71,7 +93,7 @@ async function sbProducts(o){
   else if(o.special==="bs") query=query.eq("is_best_seller",true);
   else if(o.special==="nv") query=query.eq("is_new",true);
   else if(o.special==="f")  query=query.eq("is_featured",true);
-  if(o.price){ const [a,z]=o.price.split("-").map(Number); query=query.gte("wholesale_price",a).lte("wholesale_price",z); }
+  if(o.price){ const [a,z]=o.price.split("-").map(Number); query=query.gte("retail_price",a).lte("retail_price",z); }
   if(o.q){
     const {brandIds,catIds}=await resolveSearch(o.q);
     const ors=["name.ilike.%"+o.q+"%"];

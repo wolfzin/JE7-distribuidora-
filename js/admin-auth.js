@@ -55,15 +55,74 @@
     return;
   }
 
-  // Sessão inicial (permanece após atualizar a página — persistência padrão do SDK).
+  /* ------------------------------------------------------------
+     AUTENTICAÇÃO x AUTORIZAÇÃO — verificações SEPARADAS:
+       • Autenticação (Supabase Auth): confirma QUEM é o usuário
+         (signInWithPassword / getSession / onAuthStateChange).
+       • Autorização (is_admin): confirma se ESTE usuário PODE usar
+         o painel. Uma sessão válida NÃO basta — só liberamos o
+         painel se o Supabase retornar is_admin() = true (fonte de
+         verdade no banco; nada de e-mail no formulário nem lista
+         hardcoded no front). Varejo/Atacado autenticam, mas NÃO
+         são admin. Em erro de RPC, nunca assumimos admin.
+     ------------------------------------------------------------ */
+
+  // Guarda o token da sessão já avaliada e liberada, para evitar
+  // chamar o RPC is_admin repetidamente no mesmo estado de sessão.
+  let authorizedToken = null;
+
+  async function authorize(session){
+    // AUTORIZAÇÃO: a sessão já está autenticada; agora perguntamos ao
+    // banco, via a função existente, se este usuário é administrador.
+    let isAdmin = false, rpcError = null;
+    try{
+      const { data, error } = await sb.rpc("is_admin");
+      if(error) rpcError = error; else isAdmin = (data === true);
+    }catch(ex){ rpcError = ex; }
+
+    if(rpcError){
+      // Falha ao verificar permissão → NUNCA assume admin: mantém bloqueado.
+      authorizedToken = null;
+      showLogin();
+      err("Não foi possível verificar suas permissões. Tente novamente.");
+      return;
+    }
+    if(isAdmin){
+      authorizedToken = session.access_token || "authorized";
+      err("");
+      showApp(session.user.email);
+    }else{
+      // Autenticado, porém SEM permissão de admin (ex.: Varejo/Atacado):
+      // não revela o painel, mantém bloqueado e encerra a sessão no painel.
+      authorizedToken = null;
+      showLogin();
+      err("Acesso restrito. Esta conta não possui permissão de administrador.");
+      try{ await sb.auth.signOut(); }catch(ex){}
+    }
+  }
+
+  // Ponto único por onde passam TODOS os caminhos de autenticação.
+  async function evaluateSession(session){
+    if(!session){ authorizedToken = null; showLogin(); return; }
+    // Dedupe: se esta mesma sessão já foi avaliada e o painel está
+    // liberado, não repetimos o RPC (evita chamada duplicada no load).
+    if(session.access_token && session.access_token === authorizedToken
+       && !document.body.classList.contains("locked")) return;
+    await authorize(session);
+  }
+
+  // Sessão inicial / restauração após atualizar a página (persistência padrão do SDK).
+  // Reavalia is_admin() a cada carregamento — sessão restaurada também é revalidada.
   sb.auth.getSession()
-    .then(({ data }) => { if(data && data.session) showApp(data.session.user.email); else showLogin(); })
+    .then(({ data }) => evaluateSession(data && data.session ? data.session : null))
     .catch(() => showLogin());
 
   // Reage a login, logout, refresh e expiração de sessão.
-  sb.auth.onAuthStateChange((_event, session) => {
-    if(session){ showApp(session.user.email); err(""); }
-    else { showLogin(); }
+  // Ignoramos INITIAL_SESSION porque getSession() acima já cobre o load inicial
+  // (evita uma segunda chamada ao RPC no mesmo estado de sessão).
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === "INITIAL_SESSION") return;
+    evaluateSession(session);
   });
 
   async function doLogin(e){

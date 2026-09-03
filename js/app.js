@@ -44,7 +44,7 @@ window.__svgArt = id => { const p=byId[id]; return p?svgArt(p):""; };
    STATE + HELPERS (dados via Supabase)
    ============================================================ */
 let state = { catId:"", brandId:"", price:"", q:"", special:"", sort:"rel", page:0, total:0,
-              cart:{}, favs:new Set(), buyMode:"atacado",
+              cart:{}, favs:new Set(), buyMode:"atacado", priceMode:"varejo", _acct:null,
               _cli:"", _fone:"", _empresa:"", _cnpj:"", _obs:"", orderNo:"", orderDate:"" };
 const PER = CONFIG.perPage || 24;
 let byId = {};            // cache id -> produto adaptado
@@ -53,6 +53,7 @@ let hlCache = null;       // destaques (carregados uma vez)
 const money = n => "R$ "+(+n||0).toFixed(2).replace(".",",");
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
+function escHtml(s){ return String(s==null?"":s).replace(/[&<>"\u0027]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","\u0027":"&#39;"}[m])); }
 function cache(list){ (list||[]).forEach(p=>byId[p.id]=p); return list; }
 function debounce(fn,ms){ let t; return function(){ const a=arguments; clearTimeout(t); t=setTimeout(()=>fn.apply(null,a),ms); }; }
 
@@ -69,29 +70,50 @@ function descOf(p){ return (CAT_DESC[p.c]||"Produto")+" — "+p.b+" "+p.n+" ("+p
 function availOf(p){ return {t:"Em estoque",cls:"avail-ok"}; }
 /* ===== PREÇOS — catálogo só-atacado. SHOW_RETAIL=true reexibe o varejo (reversível). ===== */
 const SHOW_RETAIL = false;
-function atacUnit(p){ return p.promo && p.pp!=null ? p.pp : p.au; }   // atacado efetivo (null se sem preço)
+function atacUnit(p){ return p.au; }   // atacado = product_wholesale (null se não carregado/não atacadista)
 function retailUnit(p){ return p.promo && p.pp!=null ? p.pp : p.vu; } // varejo (oculto por ora)
 function hasPrice(p){ return atacUnit(p)!=null; }
 function priceTxt(v){ return v==null ? "Sob consulta" : money(v); }
 function effPrice(p){ return atacUnit(p); }
-function unitPrice(p){ return (SHOW_RETAIL && state.buyMode==="varejo") ? retailUnit(p) : atacUnit(p); }
+function unitPrice(p){ return state.priceMode==="atacado" ? atacUnit(p) : retailUnit(p); }
 function priceBlocks(p){
+  if(state.priceMode==="atacado")
+    return `<div class="pr-block"><small>Atacado</small><div class="v">${priceTxt(atacUnit(p))}</div><div class="u">por unidade</div></div>`;
   const promoOn = p.promo && p.pp!=null;
-  const atacMain = promoOn ? (p.au!=null?"<s>"+money(p.au)+"</s>":"")+money(p.pp) : priceTxt(p.au);
-  const atacCls = "pr-block"+(SHOW_RETAIL?" atac":"")+(promoOn?" promo":"");
-  const atac = `<div class="${atacCls}"><small>${promoOn?"Oferta atacado":"Atacado"}</small><div class="v">${atacMain}</div><div class="u">por unidade</div></div>`;
-  if(!SHOW_RETAIL) return atac;
-  const retMain = promoOn ? "<s>"+money(p.vu)+"</s>"+money(p.pp) : money(p.vu);
-  return `<div class="pr-block${promoOn?" promo":""}"><small>${promoOn?"Oferta":"Varejo"}</small><div class="v">${retMain}</div><div class="u">unidade</div></div>`+atac;
+  const main = promoOn ? "<s>"+money(p.vu)+"</s>"+money(p.pp) : priceTxt(p.vu);
+  return `<div class="pr-block${promoOn?" promo":""}"><small>${promoOn?"Oferta":"Varejo"}</small><div class="v">${main}</div><div class="u">unidade</div></div>`;
 }
 function modalPrices(p){
+  if(state.priceMode==="atacado")
+    return `<div class="pm-price-box hl"><small>Preço de atacado (un)</small><span class="val">${priceTxt(atacUnit(p))}</span></div>`;
   const promoOn = p.promo && p.pp!=null;
-  const atacVal = promoOn ? '<span class="val">'+(p.au!=null?"<s>"+money(p.au)+"</s>":"")+money(p.pp)+'</span>' : '<span class="val">'+priceTxt(p.au)+'</span>';
-  const atacBox = `<div class="pm-price-box hl"><small>${promoOn?"Oferta atacado (un)":"Preço de atacado (un)"}</small>${atacVal}</div>`;
-  if(!SHOW_RETAIL) return atacBox;
-  const retVal = promoOn ? '<span class="val"><s>'+money(p.vu)+'</s>'+money(p.pp)+'</span>' : '<span class="val">'+money(p.vu)+'</span>';
-  return `<div class="pm-price-box hl"><small>${promoOn?"Oferta varejo (un)":"Varejo (un)"}</small>${retVal}</div><div class="pm-price-box"><small>Atacado (un)</small><span class="val">${money(p.au)}</span></div>`;
+  const val = promoOn ? '<span class="val"><s>'+money(p.vu)+'</s>'+money(p.pp)+'</span>' : '<span class="val">'+priceTxt(p.vu)+'</span>';
+  return `<div class="pm-price-box hl"><small>${promoOn?"Oferta varejo (un)":"Varejo (un)"}</small>${val}</div>`;
 }
+/* Mescla o preço de atacado (product_wholesale) nos produtos, só p/ atacadista */
+async function applyWholesale(list){
+  if(state.priceMode!=="atacado" || !list || !list.length) return;
+  const need=[...new Set(list.filter(p=>p && p.au==null).map(p=>p.id))];
+  if(!need.length) return;
+  try{ const map=await sbWholesale(need); list.forEach(p=>{ if(p && map[p.id]!=null) p.au=+map[p.id]; }); }catch(e){}
+}
+/* Fonte ÚNICA de troca de modo — chamada pelo account.js quando a sessão muda */
+window.jeSetPriceMode = async function(mode){
+  const m = mode==="atacado" ? "atacado" : "varejo";
+  if(m===state.priceMode) return;
+  state.priceMode = m;
+  const ids=Object.keys(state.cart);
+  if(m!=="atacado"){
+    Object.values(byId).forEach(p=>{ if(p) p.au=null; });
+    ids.forEach(id=>{ state.cart[id].p.au=null; });
+  } else if(ids.length){
+    try{ const map=await sbWholesale(ids); ids.forEach(id=>{ if(map[id]!=null) state.cart[id].p.au=+map[id]; }); }catch(e){}
+  }
+  try{ await renderCatalog(); }catch(e){}
+  updateCartUI();
+};
+/* Perfil do cliente autenticado (fonte: account.js). Não altera o preço — só enriquece o pedido. */
+window.jeSetCustomer = function(c){ state._acct = c || null; try{ updateCartUI(); }catch(e){} };
 const SPECIAL_TITLES = {bs:"Mais procurados",nv:"Novidades",promo:"Ofertas",f:"Destaques",fav:"Seus favoritos"};
 function catName(id){ const c=cats.find(x=>x.id===id); return c?c.name:""; }
 function brandName(id){ const b=brands.find(x=>x.id===id); return b?b.name:""; }
@@ -161,6 +183,9 @@ async function renderCatalog(){
       const {items,total}=await sbProducts({page:0,perPage:PER,sort:"rel"});
       if(seq!==reqSeq) return;
       cache(items); state.total=total;
+      if(hlCache) await applyWholesale([].concat(hlCache.promo,hlCache.bs,hlCache.nv,hlCache.f));
+      await applyWholesale(items);
+      if(seq!==reqSeq) return;
       let html="";
       if(hlCache.promo.length) html+=section("Ofertas da semana","Aproveite enquanto duram",hlCache.promo,"ofertas");
       if(hlCache.bs.length)    html+=section("Mais procurados","Os campeões de pedido",hlCache.bs);
@@ -172,6 +197,7 @@ async function renderCatalog(){
       const favs=await sbByIds([...state.favs]);
       if(seq!==reqSeq) return;
       cache(favs); state.total=favs.length;
+      await applyWholesale(favs); if(seq!==reqSeq) return;
       area.innerHTML = favs.length
         ? `<div class="sec-head"><div><div class="sec-eyebrow">Resultados</div><h2>Seus favoritos</h2></div><span class="count">${favs.length} ${favs.length===1?"item":"itens"}</span></div><div class="grid">${favs.map(card).join("")}</div>`
         : emptyHTML();
@@ -179,6 +205,7 @@ async function renderCatalog(){
       const {items,total}=await sbProducts({page:state.page,perPage:PER,catId:state.catId,brandId:state.brandId,price:state.price,q:state.q,sort:state.sort,special:state.special});
       if(seq!==reqSeq) return;
       cache(items); state.total=total;
+      await applyWholesale(items); if(seq!==reqSeq) return;
       if(!items.length){ area.innerHTML=emptyHTML(); }
       else{
         const title = state.special?SPECIAL_TITLES[state.special]:(state.brandId?brandName(state.brandId):(state.catId?catName(state.catId):(state.q?'Resultados para "'+state.q+'"':"Todos os produtos")));
@@ -260,6 +287,7 @@ async function renderSuggest(q){
     const {items}=await sbProducts({q,perPage:6,page:0,sort:"rel"});
     if(seq!==suggestSeq) return;
     cache(items);
+    await applyWholesale(items); if(seq!==suggestSeq) return;
     if(!items.length){ box.innerHTML='<div class="suggest-head">Nada encontrado para "'+q+'"</div>'; box.classList.add("open"); return; }
     const esc=q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); const hl=s=>s.replace(new RegExp("("+esc+")","ig"),"<b>$1</b>");
     box.innerHTML='<div class="suggest-head">Sugestões</div>'+items.map(p=>`<div class="suggest-item" data-open="${p.id}"><div class="suggest-thumb" style="background:linear-gradient(145deg,${catStyle(p.c).tile[0]},${catStyle(p.c).tile[1]})">${productArt(p)}</div><div class="suggest-info"><div class="suggest-name">${hl(p.n)} <span style="opacity:.55">${p.v}</span></div><div class="suggest-meta">${p.b} · ${p.c}</div></div><div class="suggest-price">${money(effPrice(p))}</div></div>`).join("");
@@ -295,7 +323,7 @@ function updateCartUI(){
   const t=cartTotals();
   $("#navCount").textContent=t.qty; $("#drawerCount").textContent=t.qty; $("#navCount").classList.toggle("on",t.qty>0);
   $("#totVol").textContent=t.qty; $("#totUnits").textContent=t.lines; $("#totValue").textContent=money(t.val);
-  const lbl=$("#totLabel"); if(lbl) lbl.textContent="Valor estimado ("+state.buyMode+")";
+  const lbl=$("#totLabel"); if(lbl) lbl.textContent="Valor estimado ("+state.priceMode+")";
   $("#fabItems").textContent=`${t.qty} ${t.qty===1?"item":"itens"} · ${t.lines} ${t.lines===1?"produto":"produtos"}`;
   $("#fab").classList.toggle("show",t.qty>0); $("#finish").disabled=t.lines===0;
   renderDrawer();
@@ -313,16 +341,19 @@ function flyToCart(srcEl){
 function bumpCart(){ ["#navCount","#fab"].forEach(s=>{const el=$(s); if(!el)return; el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");}); }
 function emptyCart(){ return `<div class="cart-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="9" cy="21" r="1.5"/><circle cx="18" cy="21" r="1.5"/><path d="M2.5 3h2l2.2 12.4a1.5 1.5 0 0 0 1.5 1.2h9.1a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg><h3>Seu pedido está vazio</h3><p>Adicione produtos do catálogo para começar.</p></div>`; }
 function renderDrawer(){
-  const body=$("#drawerBody"); const entries=Object.entries(state.cart); const atac=SHOW_RETAIL?state.buyMode==="atacado":true;
+  const body=$("#drawerBody"); const entries=Object.entries(state.cart); const atac=state.priceMode==="atacado";
+  const acct=state._acct;
+  const acctNote = acct ? `<div class="acct-inline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 14 0v1"/></svg><span>Pedido pela conta <b>${escHtml(acct.email||"")}</b> · ${atac?"Atacado":"Varejo"}</span></div>` : "";
+  const vName = state._cli || (acct&&acct.name) || "";
+  const vEmp  = state._empresa || (acct&&acct.razao_social) || "";
+  const vCnpj = state._cnpj || (acct&&acct.cnpj) || "";
   const head=`<div class="quote-head"><div class="qh-top"><span class="qh-badge">Orçamento</span><span class="qh-no">${state.orderNo}</span></div><div class="qh-date">Data: ${state.orderDate}</div></div>
-    ${SHOW_RETAIL?`<div class="buy-mode"><div class="bm-label">Como deseja comprar?</div>
-      <div class="bm-opts"><button class="bm-opt ${!atac?"active":""}" data-mode="varejo"><span class="bm-dot"></span>Varejo</button><button class="bm-opt ${atac?"active":""}" data-mode="atacado"><span class="bm-dot"></span>Atacado</button></div>
-      <p class="bm-hint">${atac?"Preços de atacado aplicados. Preencha os dados para o orçamento.":"Preços de varejo aplicados."}</p>
-    </div>`:`<p class="bm-hint" style="margin:.2rem 0 1rem">Preços de atacado. Preencha os dados para o orçamento.</p>`}
+    ${acctNote}
+    <p class="bm-hint" style="margin:.2rem 0 1rem">${atac?"Preços de atacado. Preencha os dados para o orçamento.":"Preços de varejo."}</p>
     <div class="quote-fields">
-      <input id="cliName" placeholder="Nome${atac?"":" (opcional)"}" value="${state._cli||""}" autocomplete="name">
-      <input id="cliPhone" placeholder="Telefone / WhatsApp" value="${state._fone||""}" autocomplete="tel">
-      ${atac?`<input id="cliEmp" placeholder="Empresa" value="${state._empresa||""}" autocomplete="organization"><input id="cliCnpj" placeholder="CNPJ" value="${state._cnpj||""}">`:""}
+      <input id="cliName" placeholder="Nome${atac?"":" (opcional)"}" value="${escHtml(vName)}" autocomplete="name">
+      <input id="cliPhone" placeholder="Telefone / WhatsApp" value="${escHtml(state._fone||"")}" autocomplete="tel">
+      ${atac?`<input id="cliEmp" placeholder="Razão Social" value="${escHtml(vEmp)}" autocomplete="organization"><input id="cliCnpj" placeholder="CNPJ" value="${escHtml(vCnpj)}">`:""}
     </div>`;
   if(!entries.length){ body.innerHTML=head+emptyCart(); wireQuoteFields(); return; }
   const items=entries.map(([id,{p,q}])=>`<div class="cart-item"><div class="thumb" style="background:linear-gradient(145deg,${catStyle(p.c).tile[0]},${catStyle(p.c).tile[1]})">${p.n.slice(0,2).toUpperCase()}</div><div class="ci-body"><div class="ci-name">${p.n}</div><div class="ci-meta">${p.v} · ${priceTxt(unitPrice(p))}/un</div><div class="ci-row"><div class="qty"><button data-deci="${id}">−</button><span>${q}</span><button data-inci="${id}">+</button></div><div style="display:flex;align-items:center;gap:.7rem"><span class="ci-price">${priceTxt(unitPrice(p)==null?null:q*unitPrice(p))}</span><button class="ci-remove" data-rmi="${id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg></button></div></div></div></div>`).join("");
@@ -334,18 +365,26 @@ function wireQuoteFields(){
   set("#cliName","_cli"); set("#cliPhone","_fone"); set("#cliEmp","_empresa"); set("#cliCnpj","_cnpj"); set("#obsField","_obs");
 }
 function buildMessage(){
-  const t=cartTotals(); const atac=SHOW_RETAIL?state.buyMode==="atacado":true;
+  const t=cartTotals(); const atac=state.priceMode==="atacado";
+  const acct=state._acct;
+  const val=(v)=>(v==null?"":String(v).trim());
+  const cName  = val(state._cli) || val(acct&&acct.name);
+  const cEmail = val(acct&&acct.email);
+  const cEmp   = val(state._empresa) || val(acct&&acct.razao_social);
+  const cCnpj  = val(state._cnpj) || val(acct&&acct.cnpj);
+  const cFone  = val(state._fone);
   let m="*PEDIDO DE ORÇAMENTO*\n*"+CONFIG.storeName+"*\n\n";
   m+="*Tipo de compra:* "+(atac?"Atacado":"Varejo")+"\n";
-  if(state._cli && state._cli.trim()) m+="*Nome:* "+state._cli.trim()+"\n";
-  if(atac && state._empresa && state._empresa.trim()) m+="*Empresa:* "+state._empresa.trim()+"\n";
-  if(state._fone && state._fone.trim()) m+="*Telefone:* "+state._fone.trim()+"\n";
-  if(atac && state._cnpj && state._cnpj.trim()) m+="*CNPJ:* "+state._cnpj.trim()+"\n";
+  if(cName)  m+="*Nome:* "+cName+"\n";
+  if(cEmail) m+="*E-mail:* "+cEmail+"\n";
+  if(atac && cEmp)  m+="*Razão Social:* "+cEmp+"\n";
+  if(atac && cCnpj) m+="*CNPJ:* "+cCnpj+"\n";
+  if(cFone) m+="*Telefone:* "+cFone+"\n";
   m+="\n--------------------------------\n*PRODUTOS*\n--------------------------------\n";
   Object.values(state.cart).forEach(({p,q})=>{ m+="\n• "+p.n+" ("+p.v+")\n   Qtd: "+q+"  —  "+priceTxt(unitPrice(p)==null?null:q*unitPrice(p))+"\n"; });
   m+="\n--------------------------------\n";
   m+="*Itens:* "+t.qty+"    *Produtos:* "+t.lines+"\n";
-  m+="*Valor estimado ("+state.buyMode+"):* "+money(t.val)+"\n";
+  m+="*Valor estimado ("+state.priceMode+"):* "+money(t.val)+"\n";
   if(state._obs && state._obs.trim()) m+="\n*Observações:* "+state._obs.trim()+"\n";
   m+="\n_Aguardo retorno. Obrigado!_";
   return m;
@@ -388,11 +427,12 @@ function modalHTML(p){
 async function openProduct(id){
   let p=byId[id]; if(!p){ try{ p=await sbById(id); }catch(e){} if(p) byId[id]=p; }
   if(!p) return;
+  await applyWholesale([p]);
   pmState={id};
   $("#pmodal").innerHTML=modalHTML(p);
   $("#pmodal").classList.add("open"); $("#pmOverlay").classList.add("open");
   document.body.style.overflow="hidden"; try{history.replaceState(null,"","#p="+p.id);}catch(e){} $("#pmodal").scrollTop=0;
-  try{ const rel=await sbRelated(p); cache(rel); const host=$("#pmRelated"); if(host) host.outerHTML=relatedBlock("Produtos semelhantes",rel); }catch(e){}
+  try{ const rel=await sbRelated(p); cache(rel); await applyWholesale(rel); const host=$("#pmRelated"); if(host) host.outerHTML=relatedBlock("Produtos semelhantes",rel); }catch(e){}
 }
 function closeProduct(){
   $("#pmodal").classList.remove("open"); $("#pmOverlay").classList.remove("open"); document.body.style.overflow="";
@@ -444,7 +484,6 @@ function bind(){
   $("#activeFilters").addEventListener("click",e=>{ const x=e.target.closest("[data-clear]"); if(x){ clearFilter(x.dataset.clear); return; } if(e.target.closest("#clearAllFilters")) clearAllFilters(); });
   // drawer
   $("#drawerBody").addEventListener("click",e=>{
-    const mode=e.target.closest("[data-mode]"); if(mode){ state.buyMode=mode.dataset.mode; updateCartUI(); return; }
     const inc=e.target.closest("[data-inci]"), dec=e.target.closest("[data-deci]"), rm=e.target.closest("[data-rmi]");
     if(inc){ const id=inc.dataset.inci; setQty(id,(state.cart[id]?.q||0)+1); }
     if(dec){ const id=dec.dataset.deci; setQty(id,(state.cart[id]?.q||0)-1); }

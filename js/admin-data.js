@@ -6,9 +6,9 @@
    O catálogo público permanece intocado nesta etapa.
    ============================================================ */
 
-// colunas mínimas p/ exibição do admin — repare: SEM retail_price
+// colunas do admin — varejo em products.retail_price; atacado em product_wholesale
 const ADMIN_PROD_SEL =
-  "id,legacy_id,name,volume,category_id,brand_id,wholesale_price,promotion_price," +
+  "id,legacy_id,name,volume,category_id,brand_id,retail_price,promotion_price," +
   "is_promotion,is_featured,is_new,is_best_seller,active," +
   "brands(name),categories(name)";
 
@@ -18,6 +18,23 @@ const ADMIN_PROD_SEL =
    fica em public.product_images.
    ============================================================ */
 const ADMIN_IMG_SEL = "id,product_id,storage_path,is_primary,sort_order";
+/* Preço de atacado agora vive em public.product_wholesale (admin lê/grava via RLS is_admin). */
+const ADMIN_WS_TABLE = "product_wholesale";
+const ADMIN_WS_FK    = "product_id";
+const ADMIN_WS_COL   = "wholesale_price";
+async function adminLoadWholesaleMap(){
+  const sb = window.sbAdmin; if(!sb) return {};
+  const { data, error } = await sb.from(ADMIN_WS_TABLE).select(ADMIN_WS_FK+","+ADMIN_WS_COL);
+  if(error) throw error;
+  const m={}; (data||[]).forEach(r=>{ const v=r[ADMIN_WS_COL]; m[r[ADMIN_WS_FK]] = v==null?null:+v; });
+  return m;
+}
+async function adminSaveWholesale(productId, price){
+  const sb = window.sbAdmin; if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
+  const row={}; row[ADMIN_WS_FK]=productId; row[ADMIN_WS_COL]= (price==null?null:+price);
+  const { error } = await sb.from(ADMIN_WS_TABLE).upsert(row, { onConflict: ADMIN_WS_FK });
+  if(error) throw error;
+}
 const ADMIN_IMAGE_BUCKET = "product-images";
 
 function adminPublicImageUrl(path){
@@ -44,7 +61,7 @@ async function adminLoadProductImages(){
   return map;
 }
 
-function adaptAdminRow(row, imageMap){
+function adaptAdminRow(row, imageMap, wsMap){
   const im = imageMap?.[row.id] || null;
   return {
     id: row.id,
@@ -55,8 +72,8 @@ function adaptAdminRow(row, imageMap){
     c: row.categories ? row.categories.name : "",
     category_id: row.category_id,
     brand_id: row.brand_id,
-    vu: null, // retail_price nao e lido pelo Admin (catalogo atacado)
-    au: row.wholesale_price == null ? null : +row.wholesale_price,
+    vu: row.retail_price == null ? null : +row.retail_price, // varejo = products.retail_price
+    au: (wsMap && wsMap[row.id]!=null) ? +wsMap[row.id] : null, // atacado de product_wholesale
     pp: row.promotion_price == null ? null : +row.promotion_price,
     promo: !!row.is_promotion,
     f:  !!row.is_featured,
@@ -73,31 +90,35 @@ function adaptAdminRow(row, imageMap){
 async function adminLoadProducts(){
   const sb = window.sbAdmin;
   if(!sb) throw new Error("Cliente Supabase do admin indisponível (verifique login/configuração).");
-  const [{ data, error }, imageMap] = await Promise.all([
+  const [{ data, error }, imageMap, wsMap] = await Promise.all([
     sb.from("products")
       .select(ADMIN_PROD_SEL)
       .order("name", { ascending: true }),
-    adminLoadProductImages()
+    adminLoadProductImages(),
+    adminLoadWholesaleMap()
   ]);
   if(error) throw error;
-  return (data || []).map(row => adaptAdminRow(row, imageMap));
+  return (data || []).map(row => adaptAdminRow(row, imageMap, wsMap));
 }
 
 /* Escrita autenticada de produtos. */
-async function adminCreateProduct(payload){
+async function adminCreateProduct(payload, wholesale){
   const sb = window.sbAdmin;
   if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
   const { data, error } = await sb.from("products").insert(payload).select(ADMIN_PROD_SEL).single();
   if(error) throw error;
-  return adaptAdminRow(data, {});
+  if(wholesale!==undefined) await adminSaveWholesale(data.id, wholesale);
+  return adaptAdminRow(data, {}, wholesale===undefined?null:{[data.id]:wholesale});
 }
 
-async function adminUpdateProduct(id, patch){
+async function adminUpdateProduct(id, patch, wholesale){
   const sb = window.sbAdmin;
   if(!sb) throw new Error("Cliente Supabase do admin indisponível.");
   const { data, error } = await sb.from("products").update(patch).eq("id", id).select(ADMIN_PROD_SEL);
   if(error) throw error;
-  return (data && data.length) ? adaptAdminRow(data[0], {}) : null;
+  if(!data || !data.length) return null;
+  if(wholesale!==undefined) await adminSaveWholesale(id, wholesale);
+  return adaptAdminRow(data[0], {}, wholesale===undefined?null:{[id]:wholesale});
 }
 
 /* ---------- IMAGENS DE PRODUTO ---------- */

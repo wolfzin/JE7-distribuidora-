@@ -169,8 +169,8 @@ async function openForm(i){
 
         <div class="grp">Preços</div>
         <div class="f2">
-          <label>Varejo / unidade <small class="hint">(não usado — catálogo atacado)</small>
-            <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}" disabled>
+          <label>Varejo / unidade
+            <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}">
           </label>
           <label>Atacado / unidade
             <input type="number" min="0" step="0.01" id="f_au" value="${p.au??0}">
@@ -266,6 +266,7 @@ async function saveForm(){
   const categoryId=$("#f_c").value || null;
   const brandId=$("#f_b").value || null;
   const promo=$("#f_promo").checked;
+  const wholesale=num("#f_au");   // atacado -> product_wholesale (não vai no products)
 
   if(!legacy){ toast("Informe o código / legacy_id"); return; }
   if(!name){ toast("Informe o nome"); return; }
@@ -279,7 +280,7 @@ async function saveForm(){
     volume: volume || null,
     category_id: categoryId,
     brand_id: brandId,
-    wholesale_price: num("#f_au"),
+    retail_price: num("#f_vu"),
     promotion_price: promo ? num("#f_pp") : null,
     is_promotion: promo,
     is_featured: $("#f_f").checked,
@@ -294,11 +295,11 @@ async function saveForm(){
   try{
     let savedProduct;
     if(editIdx===null){
-      savedProduct=await adminCreateProduct(payload);
+      savedProduct=await adminCreateProduct(payload, wholesale);
       toast("Produto adicionado");
     }else{
       const current=items[editIdx];
-      savedProduct=await adminUpdateProduct(current.id,payload);
+      savedProduct=await adminUpdateProduct(current.id,payload,wholesale);
       if(!savedProduct){ toast("Não foi possível salvar o produto."); return; }
       toast("Produto salvo");
     }
