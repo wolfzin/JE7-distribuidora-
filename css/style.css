@@ -600,3 +600,15 @@ footer .slash{position:absolute;top:0;left:0;right:0;height:6px;background:linea
 .acct-inline{display:flex;align-items:center;gap:.45rem;margin:.1rem 0 .8rem;padding:.5rem .65rem;border:1px dashed var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-size:.76rem;font-weight:600}
 .acct-inline svg{width:15px;height:15px;flex:0 0 auto}
 .acct-inline b{color:var(--text);font-weight:700;word-break:break-all}
+
+/* ============================================================
+   MODO SÓ ATACADO (CONFIG.retailEnabled=false)
+   ============================================================ */
+/* elementos que dependem de retail_price (filtro/ordenação por preço) */
+[data-retail-only][hidden]{display:none!important}
+/* "Preço sob consulta": indicação discreta quando wholesale_price é NULL */
+.pr-block.na{background:transparent;border:1px dashed var(--border)}
+.pr-block .v.na{font-family:inherit;font-size:.8rem;font-weight:600;color:var(--text-muted);white-space:normal}
+.pm-price-box.na{border-style:dashed}
+.pm-price-box .val.na{font-family:inherit;font-size:1rem;font-weight:600;color:var(--text-muted)}
+.suggest-price.na,.rel-price.na{font-family:inherit;font-weight:600;font-size:.75rem;color:var(--text-muted)}
