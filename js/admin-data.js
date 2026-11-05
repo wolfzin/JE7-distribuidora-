@@ -6,9 +6,12 @@
    O catálogo público permanece intocado nesta etapa.
    ============================================================ */
 
-// colunas do admin — varejo em products.retail_price; atacado em product_wholesale
+// colunas do admin — varejo em products.retail_price; atacado em product_wholesale.
+// Varejo desligado (CONFIG.retailEnabled=false): retail_price/promotion_price não são
+// lidos nem gravados pelo painel (permanecem intactos no banco para reativação futura).
+const ADMIN_RETAIL_ON = !!(typeof CONFIG!=="undefined" && CONFIG.retailEnabled);
 const ADMIN_PROD_SEL =
-  "id,legacy_id,name,volume,category_id,brand_id,retail_price,promotion_price," +
+  "id,legacy_id,name,volume,category_id,brand_id," + (ADMIN_RETAIL_ON ? "retail_price,promotion_price," : "") +
   "is_promotion,is_featured,is_new,is_best_seller,active," +
   "brands(name),categories(name)";
 
@@ -72,9 +75,9 @@ function adaptAdminRow(row, imageMap, wsMap){
     c: row.categories ? row.categories.name : "",
     category_id: row.category_id,
     brand_id: row.brand_id,
-    vu: row.retail_price == null ? null : +row.retail_price, // varejo = products.retail_price
+    vu: (!ADMIN_RETAIL_ON || row.retail_price == null) ? null : +row.retail_price, // varejo = products.retail_price
     au: (wsMap && wsMap[row.id]!=null) ? +wsMap[row.id] : null, // atacado de product_wholesale
-    pp: row.promotion_price == null ? null : +row.promotion_price,
+    pp: (!ADMIN_RETAIL_ON || row.promotion_price == null) ? null : +row.promotion_price,
     promo: !!row.is_promotion,
     f:  !!row.is_featured,
     bs: !!row.is_best_seller,

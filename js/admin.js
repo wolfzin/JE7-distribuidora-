@@ -92,14 +92,15 @@ function renderProducts(){
   }
   const q=($("#prodSearch").value||"").toLowerCase();
   const rows=items.map((p,i)=>({p,i})).filter(({p})=>!q||(p.n+" "+p.b+" "+p.c+" "+(p.legacy_id||"")).toLowerCase().includes(q));
-  if(cnt) cnt.textContent=items.length+" produtos"+(q?` · ${rows.length} no filtro`:"");
+  const semAtac=items.filter(p=>p.au==null).length;
+  if(cnt) cnt.textContent=items.length+" produtos · "+semAtac+" sem preço de atacado"+(q?` · ${rows.length} no filtro`:"");
   $("#prodTable").innerHTML=rows.map(({p,i})=>`
     <tr${p.active?"":' style="opacity:.55"'}>
       <td>${thumb(p)}</td>
       <td><b>${p.n}</b><div class="sub">${p.v||""}${p.legacy_id?` · cód. ${p.legacy_id}`:""}</div></td>
       <td>${p.b||"—"}</td>
       <td><span class="pill">${p.c||"—"}</span></td>
-      <td>${p.au==null?"—":money(p.au)}</td>
+      <td>${p.au==null?'<span class="sub">sem preço</span>':money(p.au)}</td>
       <td class="flags">${p.active?"":'<span class="pill" style="background:#f3d6d6;color:#a33">Inativo</span> '}${p.f?'<span class="fl f">D</span>':''}${p.bs?'<span class="fl b">V</span>':''}${p.nv?'<span class="fl n">N</span>':''}${p.promo?'<span class="fl p">%</span>':''}</td>
       <td class="acts">
         <button class="ic" data-edit="${i}" title="Ver / editar"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4Zm10-14 4 4"/></svg></button>
@@ -123,7 +124,7 @@ async function openForm(i){
   }
 
   const p = editIdx===null
-    ? {id:null,legacy_id:"",n:"",b:"",c:"",category_id:null,brand_id:null,v:"",vu:0,au:0,pp:null,promo:false,f:false,bs:false,nv:false,active:true}
+    ? {id:null,legacy_id:"",n:"",b:"",c:"",category_id:null,brand_id:null,v:"",vu:null,au:null,pp:null,promo:false,f:false,bs:false,nv:false,active:true}
     : JSON.parse(JSON.stringify(items[i]));
 
   const categoryOptions = catItems.map(c =>
@@ -167,18 +168,19 @@ async function openForm(i){
           </label>
         </div>
 
-        <div class="grp">Preços</div>
+        <div class="grp">${ADMIN_RETAIL_ON?"Preços":"Preço de atacado"}</div>
         <div class="f2">
-          <label>Varejo / unidade
+          ${ADMIN_RETAIL_ON ? `<label>Varejo / unidade
             <input type="number" min="0" step="0.01" id="f_vu" value="${p.vu??0}">
-          </label>
+          </label>` : ""}
           <label>Atacado / unidade
-            <input type="number" min="0" step="0.01" id="f_au" value="${p.au??0}">
+            <input type="number" min="0" step="0.01" id="f_au" value="${p.au==null?"":p.au}" placeholder="Vazio = sob consulta">
           </label>
-          <label>Preço promocional
+          ${ADMIN_RETAIL_ON ? `<label>Preço promocional
             <input type="number" min="0" step="0.01" id="f_pp" value="${p.pp??""}">
-          </label>
+          </label>` : ""}
         </div>
+        ${ADMIN_RETAIL_ON ? "" : `<small class="hint">Deixe vazio para exibir "Preço sob consulta" no catálogo.</small>`}
 
         <div class="grp">Marcações</div>
         <div class="chk">
@@ -212,11 +214,13 @@ async function openForm(i){
       </div>
     </div>`;
 
-  $("#f_promo").onchange=e=>{
-    $("#f_pp").disabled=!e.target.checked;
-    if(!e.target.checked) $("#f_pp").value="";
-  };
-  $("#f_pp").disabled=!p.promo;
+  if($("#f_pp")){
+    $("#f_promo").onchange=e=>{
+      $("#f_pp").disabled=!e.target.checked;
+      if(!e.target.checked) $("#f_pp").value="";
+    };
+    $("#f_pp").disabled=!p.promo;
+  }
 
   formImageFile=null;
   formImageRemove=false;
@@ -266,10 +270,13 @@ async function saveForm(){
   const categoryId=$("#f_c").value || null;
   const brandId=$("#f_b").value || null;
   const promo=$("#f_promo").checked;
-  const wholesale=num("#f_au");   // atacado -> product_wholesale (não vai no products)
+  /* atacado -> product_wholesale (não vai no products). Vazio = NULL ("sob consulta"); nunca vira 0. */
+  const wsRaw=($("#f_au").value||"").trim().replace(",",".");
+  const wholesale = wsRaw==="" ? null : parseFloat(wsRaw);
 
   if(!legacy){ toast("Informe o código / legacy_id"); return; }
   if(!name){ toast("Informe o nome"); return; }
+  if(wholesale!==null && (!Number.isFinite(wholesale) || wholesale<0)){ toast("Preço de atacado inválido"); return; }
 
   /* Campos exatamente correspondentes à tabela public.products.
      Não enviamos campos legados de fardo, imagem ou qualquer coluna
@@ -280,8 +287,6 @@ async function saveForm(){
     volume: volume || null,
     category_id: categoryId,
     brand_id: brandId,
-    retail_price: num("#f_vu"),
-    promotion_price: promo ? num("#f_pp") : null,
     is_promotion: promo,
     is_featured: $("#f_f").checked,
     is_best_seller: $("#f_bs").checked,
@@ -289,17 +294,26 @@ async function saveForm(){
     active: $("#f_active").checked
   };
 
+  /* Varejo: só é enviado com o varejo ligado. Desligado, retail_price e promotion_price
+     ficam FORA do payload — o UPDATE não toca nesses valores no banco. */
+  if(ADMIN_RETAIL_ON){
+    payload.retail_price = num("#f_vu");
+    payload.promotion_price = promo ? num("#f_pp") : null;
+  }
+
   const btn=$("#formSave");
   if(btn) btn.disabled=true;
 
   try{
     let savedProduct;
     if(editIdx===null){
-      savedProduct=await adminCreateProduct(payload, wholesale);
+      savedProduct=await adminCreateProduct(payload, wholesale);   // cria também o registro em product_wholesale (preço ou NULL)
       toast("Produto adicionado");
     }else{
       const current=items[editIdx];
-      savedProduct=await adminUpdateProduct(current.id,payload,wholesale);
+      // só grava product_wholesale se o preço de atacado realmente mudou
+      const wsChanged = (current.au==null ? null : +current.au) !== wholesale;
+      savedProduct=await adminUpdateProduct(current.id,payload,wsChanged?wholesale:undefined);
       if(!savedProduct){ toast("Não foi possível salvar o produto."); return; }
       toast("Produto salvo");
     }

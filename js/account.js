@@ -8,6 +8,9 @@
    ============================================================ */
 (function(){
   const sb = window.jeSb || null;
+  /* Varejo desligado (CONFIG.retailEnabled=false): o cadastro oferece só "Atacado".
+     O tipo do cliente continua vindo de customer_profiles; nada de Auth/RLS foi alterado. */
+  const RETAIL_SIGNUP = !!(window.CONFIG && CONFIG.retailEnabled);
   let currentUser = null;
   let busy = false;
 
@@ -127,14 +130,15 @@
         </form>
         <form class="acct-form" id="acctFormSignup" hidden>
           <div class="acct-type">
-            <label class="acct-radio"><input type="radio" name="ctype" value="varejo" checked> Varejo</label>
-            <label class="acct-radio"><input type="radio" name="ctype" value="atacado"> Atacado</label>
+            ${RETAIL_SIGNUP
+              ? '<label class="acct-radio"><input type="radio" name="ctype" value="varejo" checked> Varejo</label><label class="acct-radio"><input type="radio" name="ctype" value="atacado"> Atacado</label>'
+              : '<label class="acct-radio"><input type="radio" name="ctype" value="atacado" checked> Cadastro de atacado (CNPJ)</label>'}
           </div>
           <label>E-mail<input type="email" id="sg_email" autocomplete="username" required></label>
           <label>Senha<input type="password" id="sg_pass" autocomplete="new-password" required minlength="6"></label>
-          <div id="sg_atac" hidden>
-            <label>Razão Social<input type="text" id="sg_razao"></label>
-            <label>CNPJ<input type="text" id="sg_cnpj" inputmode="numeric"></label>
+          <div id="sg_atac"${RETAIL_SIGNUP?" hidden":""}>
+            <label>Razão Social<input type="text" id="sg_razao"${RETAIL_SIGNUP?"":" required"}></label>
+            <label>CNPJ<input type="text" id="sg_cnpj" inputmode="numeric"${RETAIL_SIGNUP?"":" required"}></label>
           </div>
           <div class="acct-err" id="sg_err"></div>
           <div class="acct-ok" id="sg_ok" hidden></div>
