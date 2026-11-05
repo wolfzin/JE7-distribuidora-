@@ -1,0 +1,57 @@
+JE7 — PUBLICAÇÃO DO CATÁLOGO PÚBLICO DE ATACADO
+================================================
+
+O QUE FOI ALTERADO NO CÓDIGO
+---------------------------
+- js/supabase.js agora lê os produtos e os preços de atacado pela view
+  public.public_catalog.
+- O catálogo público não consulta mais public.product_wholesale diretamente.
+- A view foi desenhada para retornar somente produtos ativos e campos de
+  catálogo, incluindo wholesale_price. Não contém retail_price nem
+  promotion_price.
+- As consultas de categorias e marcas continuam usando as tabelas próprias.
+- O painel administrativo continua usando as tabelas originais, com o cliente
+  autenticado e as políticas administrativas.
+- Nenhuma chave service_role foi adicionada ao frontend.
+
+ARQUIVO SQL
+-----------
+SUPABASE_MIGRACAO_RLS_PUBLICO.sql
+
+ORDEM OBRIGATÓRIA
+-----------------
+1. Faça backup/export das tabelas no Supabase.
+2. Abra SUPABASE_MIGRACAO_RLS_PUBLICO.sql e leia o arquivo.
+3. Execute o SQL inteiro no Supabase SQL Editor.
+4. Confira os quatro blocos de validação no final. Os valores esperados das
+   permissões estão comentados no próprio SQL.
+5. Só depois publique o conteúdo deste ZIP no hosting.
+6. Teste em janela anônima (sem login): catálogo, preço de atacado, busca,
+   filtros, detalhes, favoritos/carrinho e envio de pedido pelo WhatsApp.
+7. Entre com uma conta administradora e teste: listar ativos e inativos,
+   editar produto, alterar preço de atacado, cadastrar produto, enviar e
+   excluir imagem, editar categorias e marcas.
+
+ATENÇÃO
+-------
+- Não publique este ZIP antes de executar a migração SQL: o novo JavaScript
+  espera que public.public_catalog já exista.
+- A view é criada com security_invoker=false e ownership postgres para que
+  anon leia apenas a projeção explicitamente definida, sem SELECT direto nas
+  tabelas products, product_wholesale ou product_images. Confirme que o owner
+  da view é postgres.
+- O SQL não altera nenhum produto, preço, categoria, marca ou arquivo de imagem.
+- O SQL preserva as permissões administrativas já existentes nas tabelas
+  de produtos, preços, categorias e marcas; remove privilégios públicos e
+  restringe a escrita de imagens a administradores.
+- O SQL restringe a escrita em product_images e no bucket product-images a
+  usuários para os quais public.is_admin() retorna true.
+- O varejo permanece desligado. A view não possui colunas de varejo; não mude
+  CONFIG.retailEnabled para true sem uma implementação e auditoria separadas.
+
+ROLLBACK
+--------
+Se a migração apresentar erro antes do COMMIT, a transação deve ser revertida
+pelo PostgreSQL. Se já tiver sido concluída e precisar desfazer, não tente
+recriar políticas antigas às cegas: restaure o backup ou peça uma migração de
+rollback baseada no estado efetivo do banco.

@@ -1,0 +1,37 @@
+JE7 — CATÁLOGO PÚBLICO DE ATACADO
+=================================
+
+ESTA VERSÃO
+- O visitante pode consultar preços de atacado sem login.
+- O catálogo consulta public.public_catalog.
+- A view contém somente produtos ativos e não inclui retail_price nem promotion_price.
+- O painel continua consultando as tabelas originais com a conta autenticada.
+- O varejo permanece desligado no config.js.
+
+ORDEM DE IMPLANTAÇÃO
+1. Faça backup/export do projeto Supabase e confirme que está no projeto JE7 correto.
+2. No SQL Editor, execute sql/JE7_MIGRACAO_RLS_CATALOGO_PUBLICO.sql inteiro.
+3. Confira os resultados das consultas de validação no final do SQL.
+4. Publique todos os arquivos deste ZIP juntos, preservando as pastas.
+5. Abra o catálogo em janela anônima e confirme que produtos e preços de atacado aparecem.
+6. Entre no painel e teste leitura, edição de produto, alteração de preço atacado e envio/exclusão de imagem.
+
+RESULTADOS ESPERADOS NO SQL
+- anon_select = false para products, product_wholesale e product_images.
+- anon_insert/update/delete = false nas cinco tabelas auditadas.
+- anon_select = true para categories, brands e public_catalog.
+- public_catalog não contém retail_price nem promotion_price.
+
+IMPORTANTE
+- Não use a chave service_role no navegador. O config.js usa a chave publicável/anon.
+- Não execute novamente a importação dos 390 produtos.
+- Não apague nem recrie tabelas de produtos.
+- Se o SQL falhar antes do COMMIT, a transação será revertida; copie a mensagem de erro completa antes de tentar novamente.
+- A migração pressupõe a função public.is_admin() já existente e as colunas descritas no cabeçalho do SQL.
+- A view usa privilégios do proprietário postgres (security_invoker=false, padrão do PostgreSQL). Não altere para security_invoker=true.
+
+TESTES MANUAIS
+A) Janela anônima: abrir catálogo, pesquisar produto, filtrar categoria/marca, abrir detalhe, montar pedido e enviar ao WhatsApp.
+B) Produto sem wholesale_price: deve aparecer como “Preço sob consulta”.
+C) Painel: entrar como administrador; conferir produtos ativos/inativos, editar preço atacado, salvar produto e gerenciar imagem.
+D) Segurança: chamadas diretas anon às tabelas products, product_wholesale e product_images devem ser negadas; SELECT em public_catalog deve funcionar.

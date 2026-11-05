@@ -25,7 +25,7 @@ fonts/                → (opcional) fontes locais no futuro
 O QUE VOCÊ PRECISA EDITAR
 -------------------------
 1) NÚMERO DO WHATSAPP
-   js/config.js  →  whatsapp: "5541999999999"
+   js/config.js  →  whatsapp: "554185018067"
    Troque pelo número real (DDI 55 + DDD + número, só dígitos).
 
 2) FOTOS DOS PRODUTOS
@@ -42,3 +42,27 @@ O QUE VOCÊ PRECISA EDITAR
 
 DICA: para esconder os preços do público, me avise que eu faço a
 versão "sob consulta".
+
+MODO SÓ ATACADO (varejo desativado temporariamente)
+---------------------------------------------------
+js/config.js  →  retailEnabled: false
+
+Com false (padrão atual):
+  • Catálogo e painel exibem SOMENTE o preço de atacado
+    (tabela product_wholesale, coluna wholesale_price).
+  • Produto sem preço de atacado (NULL) mostra "Preço sob consulta".
+    O preço de varejo NUNCA é usado como alternativa.
+  • O site nem solicita products.retail_price / promotion_price ao Supabase.
+  • O painel não lê nem grava retail_price / promotion_price
+    (salvar um produto não altera esses valores no banco).
+  • Filtro "Qualquer preço" e ordenação Menor/Maior preço ficam ocultos
+    (eram baseados no preço de varejo).
+  • O cadastro de cliente oferece só "Atacado" (Razão Social + CNPJ).
+
+Para REATIVAR o varejo: troque para retailEnabled: true.
+Nada foi apagado do banco: retail_price, promotion_price e os perfis
+de cliente "varejo" continuam lá.
+
+Importante: o preço de atacado é protegido por RLS no Supabase. Quem
+não estiver logado como cliente atacado (ou admin) vê "Preço sob
+consulta" em todos os produtos.

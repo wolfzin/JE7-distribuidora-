@@ -10,7 +10,7 @@
 <title>JE7 Distribuidora e Atacadão · Catálogo Digital</title>
 
 <!-- ============ SEO / OPEN GRAPH / TWITTER ============ -->
-<meta name="description" content="Catálogo digital da JE7 Distribuidora e Atacadão. Bebidas, cervejas, destilados, energéticos e mais no atacado e varejo. Monte seu pedido e finalize pelo WhatsApp." />
+<meta name="description" content="Catálogo digital da JE7 Distribuidora e Atacadão. Bebidas, cervejas, destilados, energéticos e mais no atacado. Monte seu pedido e finalize pelo WhatsApp." />
 <meta name="theme-color" content="#E30613" />
 <meta name="robots" content="index, follow" />
 <meta property="og:type" content="website" />
@@ -99,7 +99,7 @@
     <div class="hero-slash"></div>
     <div class="hero-noise"></div>
     <div class="hero-content">
-      <span class="hero-eyebrow"><span class="dot"></span>Atacado &amp; Varejo · Entrega rápida</span>
+      <span class="hero-eyebrow"><span class="dot"></span>Atacado · Entrega rápida</span>
       <h1>Bebidas para o seu <em>negócio</em>, em um só lugar.</h1>
       <p>Encontre produtos, monte seu pedido e envie tudo pelo WhatsApp.</p>
       <div class="hero-cta">
@@ -137,7 +137,8 @@
     <div class="select">
       <select id="brandFilter"><option value="">Todas as marcas</option></select>
     </div>
-    <div class="select">
+    <!-- data-retail-only: filtro baseado em retail_price; oculto com CONFIG.retailEnabled=false -->
+    <div class="select" data-retail-only hidden>
       <select id="priceFilter">
         <option value="">Qualquer preço</option>
         <option value="0-5">Até R$ 5</option>
@@ -146,7 +147,7 @@
         <option value="50-999">Acima de R$ 50</option>
       </select>
     </div>
-    <div class="sort-toggle">
+    <div class="sort-toggle" data-retail-only hidden>
       <button data-sort="rel" class="on">Relevância</button>
       <button data-sort="asc">Menor preço</button>
       <button data-sort="desc">Maior preço</button>
@@ -253,7 +254,7 @@
   <div class="drawer-foot">
     <div class="tot-row"><span>Itens no pedido</span><span id="totVol">0</span></div>
     <div class="tot-row"><span>Produtos diferentes</span><span id="totUnits">0</span></div>
-    <div class="tot-row big"><span id="totLabel">Valor estimado (varejo)</span><b id="totValue">R$ 0,00</b></div>
+    <div class="tot-row big"><span id="totLabel">Valor estimado (atacado)</span><b id="totValue">R$ 0,00</b></div>
     <button class="wpp-btn rippleable" id="finish" disabled>
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.4 14.2c-.2.6-1.3 1.2-1.8 1.2s-1.7.2-4.6-1.4-3.7-3.6-3.9-3.8-.9-1.2-.9-2.3.6-1.6.8-1.8.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6s.7 1.1 1.4 1.7c1 .8 1.7 1 2 1.2s.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.3.1.4.2.5.3s.1.7-.1 1.3Z"/></svg>
       Finalizar no WhatsApp

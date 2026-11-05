@@ -2,7 +2,7 @@
    NETWORK-FIRST: sempre tenta a versão mais nova quando online
    (garante que trocas no config.js / data.js apareçam na hora),
    e usa o cache apenas como reserva offline. */
-const CACHE = "je7-v4";
+const CACHE = "je7-v6-public-catalog";
 const CORE = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", e => {

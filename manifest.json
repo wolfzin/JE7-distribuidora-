@@ -1,7 +1,7 @@
 {
   "name": "JE7 Distribuidora e Atacadão",
   "short_name": "JE7",
-  "description": "Catálogo digital com pedido via WhatsApp. Bebidas no atacado e varejo.",
+  "description": "Catálogo digital com pedido via WhatsApp. Bebidas no atacado.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
